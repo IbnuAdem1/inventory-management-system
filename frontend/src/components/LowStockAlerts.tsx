@@ -1,9 +1,8 @@
 import { AlertTriangle } from "lucide-react";
-import { mockInventory, getLowStockItems } from "@/data/mockData";
+import { useInventory } from "@/contexts/InventoryContext";
 
 const LowStockAlerts = () => {
-  // Derived directly from the shared inventory — always in sync with InventoryPage
-  const lowStockItems = getLowStockItems(mockInventory);
+  const { lowStockItems } = useInventory();
 
   return (
     <div className="rounded-lg border border-border bg-card">
