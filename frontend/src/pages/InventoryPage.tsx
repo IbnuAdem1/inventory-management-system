@@ -1,13 +1,34 @@
 import { useState } from "react";
-import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Search, Edit, Trash2 } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import AddInventoryForm from "@/components/forms/AddInventoryForm";
+import EditInventoryForm from "@/components/forms/EditInventoryForm";
 import { useInventory, getMarginPercent } from "@/contexts/InventoryContext";
+import type { InventoryItem } from "@/types";
+import { toast } from "sonner";
 
 const InventoryPage = () => {
-  const { inventory } = useInventory();
+  const { inventory, deleteItem } = useInventory();
   const [search, setSearch] = useState("");
+
+  // Edit dialog state
+  const [editItem, setEditItem] = useState<InventoryItem | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<InventoryItem | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const filtered = inventory.filter(
     (item) =>
@@ -16,6 +37,24 @@ const InventoryPage = () => {
       item.compatibility.toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleEditClick = (item: InventoryItem) => {
+    setEditItem(item);
+    setEditOpen(true);
+  };
+
+  const handleDeleteClick = (item: InventoryItem) => {
+    setDeleteTarget(item);
+    setDeleteOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!deleteTarget) return;
+    deleteItem(deleteTarget.id);
+    toast.success(`"${deleteTarget.name}" removed from inventory.`);
+    setDeleteTarget(null);
+    setDeleteOpen(false);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -23,13 +62,11 @@ const InventoryPage = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Inventory</h1>
             <p className="text-sm text-muted-foreground">
-              Manage your spare parts stock
+              {inventory.length} part{inventory.length !== 1 ? "s" : ""} in stock
             </p>
           </div>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Part
-          </Button>
+          {/* Add Part button — opens dialog internally */}
+          <AddInventoryForm />
         </div>
 
         {/* Search */}
@@ -62,7 +99,9 @@ const InventoryPage = () => {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-5 py-10 text-center text-sm text-muted-foreground">
-                    No parts found matching your search.
+                    {inventory.length === 0
+                      ? "No parts in inventory yet. Click \"Add Part\" to get started."
+                      : "No parts found matching your search."}
                   </td>
                 </tr>
               ) : (
@@ -93,12 +132,14 @@ const InventoryPage = () => {
                         <div className="flex items-center gap-1">
                           <button
                             aria-label={`Edit ${item.name}`}
+                            onClick={() => handleEditClick(item)}
                             className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
                           >
                             <Edit className="h-3.5 w-3.5" />
                           </button>
                           <button
                             aria-label={`Delete ${item.name}`}
+                            onClick={() => handleDeleteClick(item)}
                             className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -113,6 +154,45 @@ const InventoryPage = () => {
           </table>
         </div>
       </div>
+
+      {/* Edit dialog — rendered outside table to avoid nesting issues */}
+      {editItem && (
+        <EditInventoryForm
+          item={editItem}
+          open={editOpen}
+          onOpenChange={(open) => {
+            setEditOpen(open);
+            if (!open) setEditItem(null);
+          }}
+        />
+      )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this part?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to permanently delete{" "}
+              <span className="font-semibold text-foreground">
+                {deleteTarget?.name}
+              </span>{" "}
+              ({deleteTarget?.brand}). This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };
