@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Plus, Search, Receipt } from "lucide-react";
+import { Search, Receipt } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import NewSaleForm from "@/components/forms/NewSaleForm";
 import { useSales } from "@/contexts/SalesContext";
 
 const SalesPage = () => {
@@ -30,10 +30,7 @@ const SalesPage = () => {
               </span>
             </p>
           </div>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            New Sale
-          </Button>
+          <NewSaleForm />
         </div>
 
         <div className="relative max-w-sm">
