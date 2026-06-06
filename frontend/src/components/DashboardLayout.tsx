@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Package,
@@ -13,14 +13,15 @@ import {
   Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-  { icon: Package, label: "Inventory", path: "/inventory" },
-  { icon: ShoppingCart, label: "Sales", path: "/sales" },
-  { icon: BarChart3, label: "Reports", path: "/reports" },
-  { icon: Users, label: "Activity", path: "/activity" },
-  { icon: Settings, label: "Settings", path: "/settings" },
+  { icon: Package,          label: "Inventory",  path: "/inventory" },
+  { icon: ShoppingCart,     label: "Sales",      path: "/sales" },
+  { icon: BarChart3,        label: "Reports",    path: "/reports" },
+  { icon: Users,            label: "Activity",   path: "/activity" },
+  { icon: Settings,         label: "Settings",   path: "/settings" },
 ];
 
 interface DashboardLayoutProps {
@@ -30,6 +31,16 @@ interface DashboardLayoutProps {
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleSignOut = () => {
+    logout();
+    navigate("/");
+  };
+
+  // Derive avatar initial from user name
+  const avatarInitial = user?.name?.charAt(0).toUpperCase() ?? "O";
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -59,6 +70,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <button
             onClick={() => setSidebarOpen(false)}
             className="ml-auto lg:hidden text-sidebar-foreground"
+            aria-label="Close sidebar"
           >
             <X className="h-5 w-5" />
           </button>
@@ -87,9 +99,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           })}
         </nav>
 
-        {/* Footer */}
+        {/* Sign Out */}
         <div className="border-t border-sidebar-border p-3">
-          <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors">
+          <button
+            onClick={handleSignOut}
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+          >
             <LogOut className="h-4 w-4" />
             Sign Out
           </button>
@@ -103,17 +118,22 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden text-foreground"
+            aria-label="Open sidebar"
           >
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="text-sm font-medium text-foreground">Owner</p>
-              <p className="text-xs text-muted-foreground">Admin</p>
+              <p className="text-sm font-medium text-foreground">
+                {user?.name ?? "Owner"}
+              </p>
+              <p className="text-xs text-muted-foreground capitalize">
+                {user?.role ?? "Admin"}
+              </p>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-              O
+              {avatarInitial}
             </div>
           </div>
         </header>
