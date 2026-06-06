@@ -3,19 +3,19 @@ import { Plus, Search, Receipt } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { mockSales, getTodayString, getTotalRevenue, getSalesByDate } from "@/data/mockData";
+import { useSales } from "@/contexts/SalesContext";
 
 const SalesPage = () => {
+  const { sales, todayTotal } = useSales();
   const [search, setSearch] = useState("");
 
-  const filtered = mockSales.filter(
+  const filtered = sales.filter(
     (s) =>
       s.item.toLowerCase().includes(search.toLowerCase()) ||
       s.worker.toLowerCase().includes(search.toLowerCase()) ||
-      s.id.toLowerCase().includes(search.toLowerCase())
+      s.id.toLowerCase().includes(search.toLowerCase()) ||
+      s.customer.toLowerCase().includes(search.toLowerCase())
   );
-
-  const todayTotal = getTotalRevenue(getSalesByDate(mockSales, getTodayString()));
 
   return (
     <DashboardLayout>
@@ -62,27 +62,43 @@ const SalesPage = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((sale) => (
-                <tr key={sale.id} className="border-b border-border/50 last:border-0 hover:bg-muted/50 transition-colors">
-                  <td className="px-5 py-3 font-mono text-xs text-primary">{sale.id}</td>
-                  <td className="px-5 py-3 text-xs text-muted-foreground">{sale.date}</td>
-                  <td className="px-5 py-3 text-card-foreground">{sale.item}</td>
-                  <td className="px-5 py-3 text-center font-mono">{sale.qty}</td>
-                  <td className="px-5 py-3 text-right font-mono font-medium text-card-foreground">${sale.amount.toFixed(2)}</td>
-                  <td className="px-5 py-3">
-                    <span className="inline-flex rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
-                      {sale.payment}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-muted-foreground">{sale.worker}</td>
-                  <td className="px-5 py-3 text-muted-foreground text-xs">{sale.customer}</td>
-                  <td className="px-5 py-3">
-                    <button className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
-                      <Receipt className="h-3.5 w-3.5" />
-                    </button>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                    No sales found matching your search.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filtered.map((sale) => (
+                  <tr
+                    key={sale.id}
+                    className="border-b border-border/50 last:border-0 hover:bg-muted/50 transition-colors"
+                  >
+                    <td className="px-5 py-3 font-mono text-xs text-primary">{sale.id}</td>
+                    <td className="px-5 py-3 text-xs text-muted-foreground">{sale.date}</td>
+                    <td className="px-5 py-3 text-card-foreground">{sale.item}</td>
+                    <td className="px-5 py-3 text-center font-mono">{sale.qty}</td>
+                    <td className="px-5 py-3 text-right font-mono font-medium text-card-foreground">
+                      ${sale.amount.toFixed(2)}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className="inline-flex rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
+                        {sale.payment}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-muted-foreground">{sale.worker}</td>
+                    <td className="px-5 py-3 text-muted-foreground text-xs">{sale.customer}</td>
+                    <td className="px-5 py-3">
+                      <button
+                        aria-label={`View invoice for ${sale.id}`}
+                        className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                      >
+                        <Receipt className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

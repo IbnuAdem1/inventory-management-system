@@ -1,17 +1,23 @@
-import {
-  DollarSign,
-  Package,
-  ShoppingCart,
-  TrendingUp,
-  AlertTriangle,
-  Users,
-} from "lucide-react";
+import { DollarSign, Package, ShoppingCart, TrendingUp } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import StatCard from "@/components/StatCard";
 import RecentSalesTable from "@/components/RecentSalesTable";
 import LowStockAlerts from "@/components/LowStockAlerts";
+import { useInventory } from "@/contexts/InventoryContext";
+import { useSales } from "@/contexts/SalesContext";
+import { mockMonthlyReports } from "@/data/mockData";
 
 const DashboardPage = () => {
+  const { totalItems, lowStockItems, totalStockValue } = useInventory();
+  const { todayTotal, todaySales } = useSales();
+
+  // Latest month profit from reports
+  const latestMonth = mockMonthlyReports[mockMonthlyReports.length - 1];
+  const prevMonth = mockMonthlyReports[mockMonthlyReports.length - 2];
+  const profitChange = prevMonth
+    ? (((latestMonth.profit - prevMonth.profit) / prevMonth.profit) * 100).toFixed(1)
+    : null;
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -22,34 +28,42 @@ const DashboardPage = () => {
           </p>
         </div>
 
-        {/* Stats Grid */}
+        {/* Stats — all computed from real context data */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Today's Revenue"
-            value="$2,450"
-            change="+12% from yesterday"
+            value={`$${todayTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            change={`${todaySales.length} transaction${todaySales.length !== 1 ? "s" : ""} today`}
             changeType="positive"
             icon={<DollarSign className="h-5 w-5" />}
           />
           <StatCard
             title="Total Sales"
-            value="34"
-            change="+5 from yesterday"
+            value={String(todaySales.length)}
+            change="Transactions today"
             changeType="positive"
             icon={<ShoppingCart className="h-5 w-5" />}
           />
           <StatCard
-            title="Items in Stock"
-            value="1,248"
-            change="18 low stock items"
-            changeType="negative"
+            title="Units in Stock"
+            value={totalItems.toLocaleString()}
+            change={
+              lowStockItems.length > 0
+                ? `${lowStockItems.length} low stock item${lowStockItems.length !== 1 ? "s" : ""}`
+                : "All items adequately stocked"
+            }
+            changeType={lowStockItems.length > 0 ? "negative" : "positive"}
             icon={<Package className="h-5 w-5" />}
           />
           <StatCard
             title="Monthly Profit"
-            value="$18,430"
-            change="+8.2% this month"
-            changeType="positive"
+            value={`$${latestMonth.profit.toLocaleString()}`}
+            change={
+              profitChange
+                ? `${Number(profitChange) >= 0 ? "+" : ""}${profitChange}% vs last month`
+                : "No previous data"
+            }
+            changeType={profitChange && Number(profitChange) >= 0 ? "positive" : "negative"}
             icon={<TrendingUp className="h-5 w-5" />}
           />
         </div>
