@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Compiled output
+dist/
+
+# Environment variables — NEVER commit this
+.env
+.env.local
+.env.production
+
+# Prisma generated client (regenerated on deploy)
+node_modules/.prisma/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.log

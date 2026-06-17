@@ -55,7 +55,15 @@ git commit -m "feat: add AuthContext with login/logout and localStorage persiste
 git push
 ```
 
-**What changed:** *(to be filled after Phase 1 execution)*
+**What changed:**
+- `src/contexts/AuthContext.tsx` — new file, global auth state provider:
+  - `User` interface: `email`, `name`, `role` (`"owner" | "worker"`)
+  - `AuthProvider` wraps the app and exposes `user`, `isAuthenticated`, `isLoading`, `login()`, `logout()`
+  - On startup: restores session from `localStorage` key `"autoparts_user"` so login survives page refresh
+  - `login(email, password)` — checks against `MOCK_CREDENTIALS` (email: `owner@autopartspro.com`, password: `admin123`), returns `true` on success / `false` on failure; saves user to localStorage on success
+  - `logout()` — clears user state and removes the localStorage key
+  - `useAuth()` hook — throws if called outside `<AuthProvider>` so misuse is caught at runtime
+  - Phase 4 note in comments: replace `login()` body with `supabase.auth.signInWithPassword()`
 
 ---
 
@@ -67,7 +75,11 @@ git commit -m "feat: add ProtectedRoute component"
 git push
 ```
 
-**What changed:** *(to be filled after Phase 1 execution)*
+**What changed:**
+- `src/components/ProtectedRoute.tsx` — new file, route guard component:
+  - While `isLoading` is true (checking localStorage on startup): renders a centered amber spinner to prevent a flash of the login page when the user is already logged in
+  - If not authenticated: redirects to `/` with `<Navigate replace />`
+  - If authenticated: renders `{children}` normally
 
 ---
 
@@ -79,7 +91,11 @@ git commit -m "feat: wrap app with AuthProvider and protect all dashboard routes
 git push
 ```
 
-**What changed:** *(to be filled after Phase 1 execution)*
+**What changed:**
+- `src/App.tsx` — wrapped entire app with `<AuthProvider>` (inside `QueryClientProvider`, outside `TooltipProvider`)
+- Removed unused `Navigate` import
+- All 6 dashboard routes (`/dashboard`, `/inventory`, `/sales`, `/reports`, `/activity`, `/settings`) now wrapped with `<ProtectedRoute>` — unauthenticated users are redirected to `/`
+- `/` (LoginPage) and `*` (NotFound) remain public
 
 ---
 
@@ -91,7 +107,15 @@ git commit -m "feat: connect LoginPage to real auth with error handling"
 git push
 ```
 
-**What changed:** *(to be filled after Phase 1 execution)*
+**What changed:**
+- `src/pages/LoginPage.tsx` — replaced fake `navigate("/dashboard")` with real auth flow:
+  - Imports and calls `login()` from `useAuth()`
+  - `isSubmitting` state disables the form and shows a `<Loader2>` spinner on the button during the login call
+  - On `login()` returning `false`: sets `error` state, displays a red error box below the password field
+  - On success: navigates to `/dashboard`
+  - Added `disabled={isSubmitting}` on both inputs to prevent double-submit
+  - Added `autoComplete="email"` and `autoComplete="current-password"` for browser autofill support
+  - Added `aria-label` on show/hide password toggle button for accessibility
 
 ---
 
@@ -103,49 +127,83 @@ git commit -m "feat: wire up Sign Out button in DashboardLayout"
 git push
 ```
 
-**What changed:** *(to be filled after Phase 1 execution)*
+**What changed:**
+- `src/components/DashboardLayout.tsx` — Sign Out is now fully functional:
+  - Imports `useAuth` and `useNavigate`
+  - `handleSignOut()` calls `logout()` then `navigate("/")` — clears session and redirects to login
+  - Top bar name and role now show real user data from `user?.name` and `user?.role` instead of hardcoded `"Owner"` / `"Admin"`
+  - Avatar initial is derived dynamically from `user?.name?.charAt(0)`
+  - Added `aria-label` on hamburger menu open/close buttons for accessibility
 
 ---
 
-## 🔲 PHASE 2 — State Management & Data Layer
+## ✅ PHASE 2 — State Management & Data Layer
 
 ---
 
-### Commit 14: `feat: add InventoryContext for shared inventory state`
+### Commit 7: `feat: add InventoryContext for shared inventory state`
 
 ```
 git add frontend/src/contexts/InventoryContext.tsx
 git add frontend/src/pages/InventoryPage.tsx
-git add frontend/src/pages/DashboardPage.tsx
 git add frontend/src/components/LowStockAlerts.tsx
 git commit -m "feat: add InventoryContext for shared inventory state"
 git push
 ```
 
-**What changed:** *(to be filled after Phase 2 execution)*
+**What changed:**
+- `src/contexts/InventoryContext.tsx` — new file, global inventory state:
+  - Initialised from `mockInventory` (Phase 4: replace with Supabase query)
+  - `addItem(item)` — appends new item with auto-incremented id + timestamps
+  - `updateItem(id, updates)` — merges partial updates, sets `updatedAt`
+  - `deleteItem(id)` — removes item by id
+  - `decrementStock(id, qty)` — reduces stock by qty, floors at 0 (called by SalesContext on new sale)
+  - `lowStockItems` — `useMemo` derived list of items where `stock <= minStock`
+  - `totalItems` — `useMemo` sum of all stock units
+  - `totalStockValue` — `useMemo` sum of `sellingPrice * stock` across all items
+  - Re-exports `getMarginPercent` so consumers only need one import
+- `src/pages/InventoryPage.tsx` — swapped `mockInventory` import for `useInventory()`, added empty state row when search returns 0 results, added `aria-label` on Edit/Delete buttons
+- `src/components/LowStockAlerts.tsx` — swapped `mockInventory` + `getLowStockItems` for `useInventory().lowStockItems` — now always live with inventory changes
 
 ---
 
-### Commit 15: `feat: add SalesContext for shared sales state`
+### Commit 8: `feat: add SalesContext for shared sales state`
 
 ```
 git add frontend/src/contexts/SalesContext.tsx
 git add frontend/src/pages/SalesPage.tsx
 git add frontend/src/pages/DashboardPage.tsx
 git add frontend/src/components/RecentSalesTable.tsx
+git add frontend/src/App.tsx
 git commit -m "feat: add SalesContext for shared sales state"
 git push
 ```
 
-**What changed:** *(to be filled after Phase 2 execution)*
+**What changed:**
+- `src/contexts/SalesContext.tsx` — new file, global sales state:
+  - Initialised from `mockSales` (Phase 4: replace with Supabase query)
+  - `addSale(input)` — creates new Sale with auto-generated id (`S-00N`), today's date, appends to top of list, and calls `decrementStock()` on InventoryContext to keep stock in sync
+  - `todaySales` — `useMemo` filtered list of today's sales
+  - `todayTotal` — `useMemo` sum of today's sale amounts
+  - `totalSalesCount` — total number of sales records
+  - SalesProvider must be nested inside InventoryProvider (depends on `decrementStock`)
+- `src/App.tsx` — added `<InventoryProvider>` and `<SalesProvider>` wrappers around the app; SalesProvider is inside InventoryProvider
+- `src/pages/SalesPage.tsx` — swapped `mockSales` for `useSales()`, `todayTotal` now from context (live), added empty state row, added `aria-label` on Invoice button, added customer field to search filter
+- `src/pages/DashboardPage.tsx` — all 4 stat cards now show real computed data:
+  - Today's Revenue from `useSales().todayTotal`
+  - Total Sales count from `useSales().todaySales.length`
+  - Units in Stock from `useInventory().totalItems`
+  - Low stock count from `useInventory().lowStockItems.length`
+  - Monthly Profit from `mockMonthlyReports` with % change vs previous month calculated dynamically
+- `src/components/RecentSalesTable.tsx` — swapped local array for `useSales().todaySales`, shows empty state when no sales today
 
 ---
 
-## 🔲 PHASE 3 — CRUD Operations
+## ✅ PHASE 3 — CRUD Operations
 
 ---
 
-### Commit 16: `feat: add AddInventoryForm dialog with validation`
+### Commit 9: `feat: add AddInventoryForm dialog with validation`
 
 ```
 git add frontend/src/components/forms/AddInventoryForm.tsx
@@ -154,11 +212,17 @@ git commit -m "feat: add AddInventoryForm dialog with validation"
 git push
 ```
 
-**What changed:** *(to be filled after Phase 3 execution)*
+**What changed:**
+- `src/components/forms/AddInventoryForm.tsx` — new file, dialog form for adding a part:
+  - Zod schema validates all 7 fields (name, brand, compatibility, costPrice, sellingPrice, stock, minStock)
+  - `costPrice` must be ≥ 0, `sellingPrice` > 0, `stock` ≥ 0 (integer), `minStock` ≥ 1 (integer)
+  - On submit: calls `addItem()` from InventoryContext, fires a success toast, resets form, closes dialog
+  - Cancel button resets form state before closing
+- `src/pages/InventoryPage.tsx` — replaced dead `<Button>Add Part</Button>` with `<AddInventoryForm />` component; subtitle now shows live part count; empty state message differs between "no parts at all" vs "no search results"
 
 ---
 
-### Commit 17: `feat: add EditInventoryForm dialog`
+### Commit 10: `feat: add EditInventoryForm dialog`
 
 ```
 git add frontend/src/components/forms/EditInventoryForm.tsx
@@ -167,11 +231,17 @@ git commit -m "feat: add EditInventoryForm dialog"
 git push
 ```
 
-**What changed:** *(to be filled after Phase 3 execution)*
+**What changed:**
+- `src/components/forms/EditInventoryForm.tsx` — new file, dialog form for editing an existing part:
+  - Pre-fills all fields from the passed `item` prop
+  - `useEffect` resets form when `item` changes (handles clicking edit on different rows without closing)
+  - On submit: calls `updateItem(item.id, values)`, fires success toast, closes dialog
+  - Controlled externally via `open` / `onOpenChange` props (InventoryPage owns the open state)
+- `src/pages/InventoryPage.tsx` — Edit button now calls `handleEditClick(item)`, sets `editItem` state, opens `EditInventoryForm`; dialog rendered outside the table to avoid DOM nesting issues; clears `editItem` on close
 
 ---
 
-### Commit 18: `feat: add delete confirmation dialog for inventory`
+### Commit 11: `feat: add delete confirmation dialog for inventory`
 
 ```
 git add frontend/src/pages/InventoryPage.tsx
@@ -179,11 +249,12 @@ git commit -m "feat: add delete confirmation dialog for inventory"
 git push
 ```
 
-**What changed:** *(to be filled after Phase 3 execution)*
+**What changed:**
+- `src/pages/InventoryPage.tsx` — Delete button now calls `handleDeleteClick(item)`, opens shadcn `AlertDialog` with item name and brand in the description text; "Delete" action button styled red (`bg-destructive`); on confirm: calls `deleteItem(id)` from InventoryContext and fires a success toast; cancel clears `deleteTarget` state
 
 ---
 
-### Commit 19: `feat: add NewSaleForm dialog with stock decrement`
+### Commit 12: `feat: add NewSaleForm dialog with stock decrement`
 
 ```
 git add frontend/src/components/forms/NewSaleForm.tsx
@@ -192,7 +263,15 @@ git commit -m "feat: add NewSaleForm dialog with stock decrement"
 git push
 ```
 
-**What changed:** *(to be filled after Phase 3 execution)*
+**What changed:**
+- `src/components/forms/NewSaleForm.tsx` — new file, dialog form for recording a sale:
+  - Part selector shows only in-stock items with stock count and price in the dropdown
+  - Live total amount computed as `sellingPrice × qty` shown in real time as user types
+  - Quantity input shows max stock as a hint; client-side guard prevents submitting qty > available stock
+  - Worker selector populated from `mockWorkers` (Phase 4: replace with real workers from DB)
+  - Customer field defaults to "Walk-in"
+  - On submit: calls `addSale()` from SalesContext which adds the sale AND decrements inventory stock atomically; fires success toast with item name, qty, and total
+- `src/pages/SalesPage.tsx` — replaced dead `<Button>New Sale</Button>` with `<NewSaleForm />` component; removed now-unused `Plus` and `Button` imports
 
 ---
 
@@ -392,17 +471,17 @@ git push
 | # | Phase | Commit Message | Status |
 |---|---|---|---|
 | 1 | 0 | `feat: initial frontend — AutoPartsPro Phase 0 complete` | ✅ Done |
-| 2 | 1 | `feat: add AuthContext with login/logout and localStorage persistence` | 🔲 Pending |
-| 3 | 1 | `feat: add ProtectedRoute component` | 🔲 Pending |
-| 4 | 1 | `feat: wrap app with AuthProvider and protect all dashboard routes` | 🔲 Pending |
-| 5 | 1 | `feat: connect LoginPage to real auth with error handling` | 🔲 Pending |
-| 6 | 1 | `feat: wire up Sign Out button in DashboardLayout` | 🔲 Pending |
-| 7 | 2 | `feat: add InventoryContext for shared inventory state` | 🔲 Pending |
-| 8 | 2 | `feat: add SalesContext for shared sales state` | 🔲 Pending |
-| 9 | 3 | `feat: add AddInventoryForm dialog with validation` | 🔲 Pending |
-| 10 | 3 | `feat: add EditInventoryForm dialog` | 🔲 Pending |
-| 11 | 3 | `feat: add delete confirmation dialog for inventory` | 🔲 Pending |
-| 12 | 3 | `feat: add NewSaleForm dialog with stock decrement` | 🔲 Pending |
+| 2 | 1 | `feat: add AuthContext with login/logout and localStorage persistence` | ✅ Done |
+| 3 | 1 | `feat: add ProtectedRoute component` | ✅ Done |
+| 4 | 1 | `feat: wrap app with AuthProvider and protect all dashboard routes` | ✅ Done |
+| 5 | 1 | `feat: connect LoginPage to real auth with error handling` | ✅ Done |
+| 6 | 1 | `feat: wire up Sign Out button in DashboardLayout` | ✅ Done |
+| 7 | 2 | `feat: add InventoryContext for shared inventory state` | ✅ Done |
+| 8 | 2 | `feat: add SalesContext for shared sales state` | ✅ Done |
+| 9 | 3 | `feat: add AddInventoryForm dialog with validation` | ✅ Done |
+| 10 | 3 | `feat: add EditInventoryForm dialog` | ✅ Done |
+| 11 | 3 | `feat: add delete confirmation dialog for inventory` | ✅ Done |
+| 12 | 3 | `feat: add NewSaleForm dialog with stock decrement` | ✅ Done |
 | 13 | 4 | `feat: install and configure Supabase client` | 🔲 Pending |
 | 14 | 4 | `feat: replace mock auth with Supabase authentication` | 🔲 Pending |
 | 15 | 4 | `feat: add useInventory and useSales query hooks` | 🔲 Pending |
