@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -11,14 +11,44 @@ import {
   Menu,
   X,
   Wrench,
+  Contact2,
+  ChevronDown,
+  UserRound,
+  Building2,
+  Landmark,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const navItems = [
+type NavChildItem = {
+  icon: LucideIcon;
+  label: string;
+  path: string;
+};
+
+type NavItem = {
+  icon: LucideIcon;
+  label: string;
+  path: string;
+  children?: NavChildItem[];
+};
+
+const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: Package,          label: "Inventory",  path: "/inventory" },
   { icon: ShoppingCart,     label: "Sales",      path: "/sales" },
+  {
+    icon: Contact2,
+    label: "Contacts",
+    path: "/contacts",
+    children: [
+      { icon: UserRound, label: "Customer Contacts", path: "/contacts?section=customer" },
+      { icon: Building2, label: "Supplier Contacts", path: "/contacts?section=supplier" },
+      { icon: Landmark, label: "Bank Accounts", path: "/contacts?section=bank-accounts" },
+    ],
+  },
   { icon: BarChart3,        label: "Reports",    path: "/reports" },
   { icon: Users,            label: "Activity",   path: "/activity" },
   { icon: Settings,         label: "Settings",   path: "/settings" },
@@ -30,6 +60,7 @@ interface DashboardLayoutProps {
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [contactsOpen, setContactsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -41,6 +72,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   // Derive avatar initial from user name
   const avatarInitial = user?.name?.charAt(0).toUpperCase() ?? "O";
+
+  useEffect(() => {
+    if (location.pathname === "/contacts") {
+      setContactsOpen(true);
+    }
+  }, [location.pathname, location.search]);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -79,7 +116,72 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {/* Nav */}
         <nav className="flex-1 space-y-1 p-3">
           {navItems.map((item) => {
+            const isContacts = item.path === "/contacts";
             const isActive = location.pathname === item.path;
+            const activeSection = new URLSearchParams(location.search).get("section") ?? "customer";
+            const contactsActive = isContacts && location.pathname === "/contacts";
+
+            if (isContacts) {
+              return (
+                <Collapsible
+                  key={item.path}
+                  open={contactsOpen}
+                  onOpenChange={setContactsOpen}
+                  className="space-y-1"
+                >
+                  <CollapsibleTrigger asChild>
+                    <button
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                        contactsActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span className="flex-1 text-left">{item.label}</span>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 transition-transform duration-200",
+                          contactsOpen && "rotate-180"
+                        )}
+                      />
+                    </button>
+                  </CollapsibleTrigger>
+
+                  <CollapsibleContent
+                    className={cn(
+                      "overflow-hidden transition-all duration-300 ease-out",
+                      contactsOpen ? "max-h-48 opacity-100" : "max-h-0 opacity-0"
+                    )}
+                  >
+                    <div className="mt-1 space-y-1 border-l border-sidebar-border pl-4 pb-1">
+                      {item.children?.map((child) => {
+                        const childSection = new URLSearchParams(new URL(child.path, "http://localhost").search).get("section");
+                        const childActive = location.pathname === "/contacts" && activeSection === childSection;
+                        return (
+                          <Link
+                            key={child.path}
+                            to={child.path}
+                            onClick={() => setSidebarOpen(false)}
+                            className={cn(
+                              "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                              childActive
+                                ? "bg-primary/10 text-primary"
+                                : "text-sidebar-foreground/90 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            )}
+                          >
+                            <child.icon className="h-4 w-4" />
+                            <span className="flex-1">{child.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            }
+
             return (
               <Link
                 key={item.path}

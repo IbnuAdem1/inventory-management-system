@@ -67,11 +67,16 @@ const AddInventoryForm = () => {
     },
   });
 
-  const onSubmit = (values: FormValues) => {
-    addItem(values);
-    toast.success(`"${values.name}" added to inventory.`);
-    form.reset();
-    setOpen(false);
+  const onSubmit = async (values: FormValues) => {
+    try {
+      await addItem(values);
+      toast.success(`"${values.name}" added to inventory.`);
+      form.reset();
+      setOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to add part.";
+      toast.error(message);
+    }
   };
 
   return (
@@ -198,7 +203,9 @@ const AddInventoryForm = () => {
                 <Button type="button" variant="outline" onClick={() => { form.reset(); setOpen(false); }}>
                   Cancel
                 </Button>
-                <Button type="submit">Add Part</Button>
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? "Adding..." : "Add Part"}
+                </Button>
               </DialogFooter>
             </form>
           </Form>

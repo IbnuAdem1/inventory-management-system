@@ -40,7 +40,7 @@ export const mockWorkers: Worker[] = [
 // ─────────────────────────────────────────────
 export const mockInventory: InventoryItem[] = [
   {
-    id: 1,
+    id: "1",
     name: "Brake Pads",
     brand: "Brembo",
     compatibility: "Toyota Camry 2018-2023",
@@ -50,7 +50,7 @@ export const mockInventory: InventoryItem[] = [
     minStock: 10,
   },
   {
-    id: 2,
+    id: "2",
     name: "Oil Filter",
     brand: "Bosch",
     compatibility: "Honda Civic 2016-2022",
@@ -60,7 +60,7 @@ export const mockInventory: InventoryItem[] = [
     minStock: 15,
   },
   {
-    id: 3,
+    id: "3",
     name: "Spark Plugs (x4)",
     brand: "NGK",
     compatibility: "Nissan Altima 2019-2023",
@@ -70,7 +70,7 @@ export const mockInventory: InventoryItem[] = [
     minStock: 20,
   },
   {
-    id: 4,
+    id: "4",
     name: "Air Filter",
     brand: "Mann",
     compatibility: "Ford Focus 2017-2022",
@@ -80,7 +80,7 @@ export const mockInventory: InventoryItem[] = [
     minStock: 10,
   },
   {
-    id: 5,
+    id: "5",
     name: "Alternator Belt",
     brand: "Gates",
     compatibility: "BMW 320i 2015-2020",
@@ -90,7 +90,7 @@ export const mockInventory: InventoryItem[] = [
     minStock: 5,
   },
   {
-    id: 6,
+    id: "6",
     name: "Headlight Bulb H4",
     brand: "Philips",
     compatibility: "Universal",
@@ -100,7 +100,7 @@ export const mockInventory: InventoryItem[] = [
     minStock: 12,
   },
   {
-    id: 7,
+    id: "7",
     name: "Timing Belt Kit",
     brand: "Continental",
     compatibility: "Nissan Altima 2017-2022",
@@ -110,7 +110,7 @@ export const mockInventory: InventoryItem[] = [
     minStock: 5,
   },
   {
-    id: 8,
+    id: "8",
     name: "Radiator Hose",
     brand: "Dayco",
     compatibility: "Toyota Corolla 2014-2019",
@@ -135,7 +135,7 @@ export const mockSales: Sale[] = [
     id: "S-001",
     date: getTodayString(),
     item: "Brake Pads - Toyota Camry",
-    inventoryId: 1,
+    inventoryId: "1",
     qty: 1,
     amount: 85,
     payment: "Cash",
@@ -146,7 +146,7 @@ export const mockSales: Sale[] = [
     id: "S-002",
     date: getTodayString(),
     item: "Oil Filter - Honda Civic",
-    inventoryId: 2,
+    inventoryId: "2",
     qty: 2,
     amount: 49,
     payment: "Transfer",
@@ -157,7 +157,7 @@ export const mockSales: Sale[] = [
     id: "S-003",
     date: getTodayString(),
     item: "Spark Plugs (x4) - Nissan",
-    inventoryId: 3,
+    inventoryId: "3",
     qty: 1,
     amount: 62,
     payment: "Cash",
@@ -168,7 +168,7 @@ export const mockSales: Sale[] = [
     id: "S-004",
     date: getTodayString(),
     item: "Air Filter - Ford Focus",
-    inventoryId: 4,
+    inventoryId: "4",
     qty: 1,
     amount: 35,
     payment: "Credit",
@@ -179,7 +179,7 @@ export const mockSales: Sale[] = [
     id: "S-005",
     date: getTodayString(),
     item: "Alternator Belt - BMW 320i",
-    inventoryId: 5,
+    inventoryId: "5",
     qty: 1,
     amount: 120,
     payment: "Transfer",
@@ -190,7 +190,7 @@ export const mockSales: Sale[] = [
     id: "S-006",
     date: new Date(Date.now() - 86400000).toISOString().split("T")[0], // yesterday
     item: "Radiator Hose - Toyota",
-    inventoryId: 8,
+    inventoryId: "8",
     qty: 1,
     amount: 42,
     payment: "Cash",
@@ -201,7 +201,7 @@ export const mockSales: Sale[] = [
     id: "S-007",
     date: new Date(Date.now() - 86400000).toISOString().split("T")[0], // yesterday
     item: "Headlight Bulb H4",
-    inventoryId: 6,
+    inventoryId: "6",
     qty: 2,
     amount: 36,
     payment: "Cash",

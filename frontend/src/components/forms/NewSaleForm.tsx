@@ -39,7 +39,6 @@ import {
 import { useInventory } from "@/contexts/InventoryContext";
 import { useSales } from "@/contexts/SalesContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { mockWorkers } from "@/data/mockData";
 import { toast } from "sonner";
 
 // ─────────────────────────────────────────────
@@ -47,7 +46,7 @@ import { toast } from "sonner";
 // ─────────────────────────────────────────────
 
 const schema = z.object({
-  inventoryId: z.coerce.number().min(1, "Please select a part"),
+  inventoryId: z.string().min(1, "Please select a part"),
   qty: z.coerce.number().int().min(1, "Quantity must be at least 1"),
   payment: z.enum(["Cash", "Transfer", "Credit"], {
     required_error: "Please select a payment method",
@@ -71,7 +70,7 @@ const NewSaleForm = () => {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      inventoryId: 0,
+      inventoryId: "",
       qty: 1,
       payment: "Cash",
       worker: user?.name ?? "",
@@ -82,10 +81,10 @@ const NewSaleForm = () => {
   // Watch inventoryId to compute amount and show max stock
   const selectedId = form.watch("inventoryId");
   const selectedQty = form.watch("qty");
-  const selectedItem = inventory.find((i) => i.id === Number(selectedId));
+  const selectedItem = inventory.find((i) => i.id === selectedId);
   const totalAmount = selectedItem ? selectedItem.sellingPrice * (selectedQty || 0) : 0;
 
-  const onSubmit = (values: FormValues) => {
+  const onSubmit = async (values: FormValues) => {
     if (!selectedItem) return;
 
     // Guard: can't sell more than what's in stock
@@ -96,27 +95,32 @@ const NewSaleForm = () => {
       return;
     }
 
-    addSale({
-      inventoryId: selectedItem.id,
-      item: `${selectedItem.name} - ${selectedItem.compatibility}`,
-      qty: values.qty,
-      amount: totalAmount,
-      payment: values.payment,
-      worker: values.worker,
-      customer: values.customer,
-    });
+    try {
+      await addSale({
+        inventoryId: selectedItem.id,
+        item: `${selectedItem.name} - ${selectedItem.compatibility}`,
+        qty: values.qty,
+        amount: totalAmount,
+        payment: values.payment,
+        worker: values.worker,
+        customer: values.customer,
+      });
 
-    toast.success(
-      `Sale recorded: ${selectedItem.name} x${values.qty} — $${totalAmount.toFixed(2)}`
-    );
-    form.reset({
-      inventoryId: 0,
-      qty: 1,
-      payment: "Cash",
-      worker: user?.name ?? "",
-      customer: "Walk-in",
-    });
-    setOpen(false);
+      toast.success(
+        `Sale recorded: ${selectedItem.name} x${values.qty} — $${totalAmount.toFixed(2)}`
+      );
+      form.reset({
+        inventoryId: "",
+        qty: 1,
+        payment: "Cash",
+        worker: user?.name ?? "",
+        customer: "Walk-in",
+      });
+      setOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to record sale.";
+      toast.error(message);
+    }
   };
 
   return (
@@ -143,8 +147,8 @@ const NewSaleForm = () => {
                   <FormItem>
                     <FormLabel>Part</FormLabel>
                     <Select
-                      onValueChange={(val) => field.onChange(Number(val))}
-                      value={field.value ? String(field.value) : ""}
+                      onValueChange={field.onChange}
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -242,11 +246,11 @@ const NewSaleForm = () => {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {mockWorkers.map((w) => (
-                          <SelectItem key={w.id} value={w.name}>
-                            {w.name}
+                        {user && (
+                          <SelectItem value={user.name}>
+                            {user.name}
                           </SelectItem>
-                        ))}
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -280,8 +284,11 @@ const NewSaleForm = () => {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={!selectedItem}>
-                  Record Sale
+                <Button
+                  type="submit"
+                  disabled={!selectedItem || form.formState.isSubmitting}
+                >
+                  {form.formState.isSubmitting ? "Recording..." : "Record Sale"}
                 </Button>
               </DialogFooter>
             </form>

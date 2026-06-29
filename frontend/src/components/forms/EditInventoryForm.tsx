@@ -90,10 +90,15 @@ const EditInventoryForm = ({ item, open, onOpenChange }: EditInventoryFormProps)
     });
   }, [item, form]);
 
-  const onSubmit = (values: FormValues) => {
-    updateItem(item.id, values);
-    toast.success(`"${values.name}" updated successfully.`);
-    onOpenChange(false);
+  const onSubmit = async (values: FormValues) => {
+    try {
+      await updateItem(item.id, values);
+      toast.success(`"${values.name}" updated successfully.`);
+      onOpenChange(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update part.";
+      toast.error(message);
+    }
   };
 
   return (
@@ -214,9 +219,9 @@ const EditInventoryForm = ({ item, open, onOpenChange }: EditInventoryFormProps)
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={form.formState.isSubmitting}>
                 <Edit className="mr-2 h-4 w-4" />
-                Save Changes
+                {form.formState.isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>

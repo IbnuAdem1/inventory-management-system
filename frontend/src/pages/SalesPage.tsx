@@ -6,7 +6,7 @@ import NewSaleForm from "@/components/forms/NewSaleForm";
 import { useSales } from "@/contexts/SalesContext";
 
 const SalesPage = () => {
-  const { sales, todayTotal } = useSales();
+  const { sales, todayTotal, isLoading, error } = useSales();
   const [search, setSearch] = useState("");
 
   const filtered = sales.filter(
@@ -42,6 +42,16 @@ const SalesPage = () => {
             className="pl-9"
           />
         </div>
+
+        {isLoading && (
+          <p className="text-sm text-muted-foreground">Loading sales...</p>
+        )}
+
+        {error && (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error.message}
+          </p>
+        )}
 
         <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <table className="w-full text-sm">

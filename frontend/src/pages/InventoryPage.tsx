@@ -19,7 +19,7 @@ import type { InventoryItem } from "@/types";
 import { toast } from "sonner";
 
 const InventoryPage = () => {
-  const { inventory, deleteItem } = useInventory();
+  const { inventory, deleteItem, isLoading, error } = useInventory();
   const [search, setSearch] = useState("");
 
   // Edit dialog state
@@ -47,12 +47,17 @@ const InventoryPage = () => {
     setDeleteOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
-    deleteItem(deleteTarget.id);
-    toast.success(`"${deleteTarget.name}" removed from inventory.`);
-    setDeleteTarget(null);
-    setDeleteOpen(false);
+    try {
+      await deleteItem(deleteTarget.id);
+      toast.success(`"${deleteTarget.name}" removed from inventory.`);
+      setDeleteTarget(null);
+      setDeleteOpen(false);
+    } catch (deleteError) {
+      const message = deleteError instanceof Error ? deleteError.message : "Failed to delete part.";
+      toast.error(message);
+    }
   };
 
   return (
@@ -79,6 +84,16 @@ const InventoryPage = () => {
             className="pl-9"
           />
         </div>
+
+        {isLoading && (
+          <p className="text-sm text-muted-foreground">Loading inventory...</p>
+        )}
+
+        {error && (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error.message}
+          </p>
+        )}
 
         {/* Table */}
         <div className="rounded-lg border border-border bg-card overflow-x-auto">
