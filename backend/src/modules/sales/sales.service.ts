@@ -3,6 +3,7 @@
 // createSale uses a Prisma transaction — either everything
 // succeeds (sale + all stock decrements) or nothing does.
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { AppError, RequestUser } from "../../types/index";
 import { SaleCreateInput } from "./sales.schema";
@@ -102,8 +103,9 @@ export const salesService = {
 
       // Step 2 — compute total
       const totalAmount = inventoryItems.reduce(
-        (sum, { inv, quantity }) => sum + Number(inv.sellingPrice) * quantity,
-        0
+        (sum, { inv, quantity }) =>
+          sum.add(new Prisma.Decimal(inv.sellingPrice).mul(quantity)),
+        new Prisma.Decimal(0)
       );
 
       // Step 3 — create the Sale header
@@ -119,7 +121,7 @@ export const salesService = {
               itemName: `${inv.name} — ${inv.brand}`,
               unitPrice: inv.sellingPrice,
               quantity,
-              amount: Number(inv.sellingPrice) * quantity,
+              amount: new Prisma.Decimal(inv.sellingPrice).mul(quantity),
             })),
           },
         },
@@ -155,6 +157,9 @@ export const salesService = {
       });
 
       return sale;
+    }, {
+      maxWait: 10000, // wait up to 10s to acquire a connection from pgBouncer
+      timeout: 15000, // transaction has 15s to complete
     });
 
     return result;
