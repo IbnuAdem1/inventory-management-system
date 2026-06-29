@@ -34,6 +34,11 @@ enum ActivityType {
   PRICE
 }
 
+enum ContactType {
+  CUSTOMER
+  SUPPLIER
+}
+
 // ─────────────────────────────────────────────
 // USERS
 // Stores all staff accounts (owner + workers)
@@ -158,6 +163,33 @@ model ActivityLog {
 // Monthly operating costs (rent, salaries, etc.)
 // Used by the Reports page for profit calculation
 // ─────────────────────────────────────────────
+
+model Contact {
+  id          String      @id @default(uuid())
+  type        ContactType
+  name        String
+  phone       String
+  email       String?
+  companyName String?     @map("company_name")
+  address     String?
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@map("contacts")
+}
+
+model BankAccount {
+  id                String   @id @default(uuid())
+  bankName          String   @map("bank_name")
+  accountHolderName String   @map("account_holder_name")
+  accountNumber     String   @map("account_number")
+  ifscRoutingCode   String   @map("ifsc_routing_code")
+  isActive          Boolean  @default(false) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("bank_accounts")
+}
 
 model Expense {
   id        String   @id @default(uuid())
