@@ -39,7 +39,7 @@ export interface Worker {
 // A spare part in stock. This is the core data model of the app.
 // ─────────────────────────────────────────────
 export interface InventoryItem {
-  id: number;
+  id: string;
   name: string;
   brand: string;
   compatibility: string; // e.g. "Toyota Camry 2018-2023"
@@ -55,11 +55,36 @@ export interface InventoryItem {
 // SALE
 // One sales transaction recorded at the counter.
 // ─────────────────────────────────────────────
+export type ContactType = "customer" | "supplier";
+
+export interface Contact {
+  id: string;
+  type: ContactType;
+  name: string;
+  phone: string;
+  email?: string | null;
+  companyName?: string | null;
+  address?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface BankAccount {
+  id: string;
+  bankName: string;
+  accountHolderName: string;
+  accountNumber: string;
+  ifscRoutingCode: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Sale {
   id: string;
   date: string;            // "YYYY-MM-DD" format
   item: string;            // display name of the part sold
-  inventoryId?: number;    // links back to the inventory item (optional for now)
+  inventoryId?: string;    // links back to the inventory item (optional for now)
   qty: number;
   amount: number;          // total charged to customer
   payment: PaymentMethod;
@@ -73,7 +98,7 @@ export interface Sale {
 // These are NEVER edited — they are append-only for audit purposes.
 // ─────────────────────────────────────────────
 export interface ActivityLog {
-  id?: number;
+  id?: string;
   time: string;       // display time, e.g. "10:32 AM"
   worker: string;
   action: string;     // human-readable action, e.g. "Recorded sale"
@@ -91,6 +116,7 @@ export interface MonthlyReport {
   cost: number;     // cost of goods sold
   expenses: number; // operating expenses (rent, salaries, etc.)
   profit: number;   // revenue - cost - expenses
+  totalSales?: number;
 }
 
 // ─────────────────────────────────────────────

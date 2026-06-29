@@ -1,31 +1,10 @@
-// src/contexts/SalesContext.tsx
-//
-// Global sales state. Any page or component can:
-//   - Read all sales via useSales()
-//   - Add a new sale (which also decrements inventory via InventoryContext)
-//   - Read derived data: today's sales, today's total, total sale count
-//
-// Phase 4 note: replace mockSales with a useQuery(supabase) call,
-// and replace addSale with a useMutation call.
+import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { getSalesByDate, getTodayString, getTotalRevenue } from "@/data/mockData";
+import { useCreateSaleMutation, useSalesQuery } from "@/hooks/useSales";
+import type { PaymentMethod, Sale } from "@/types";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useMemo,
-  type ReactNode,
-} from "react";
-import { mockSales, getTodayString, getTotalRevenue, getSalesByDate } from "@/data/mockData";
-import { useInventory } from "@/contexts/InventoryContext";
-import type { Sale, PaymentMethod } from "@/types";
-
-// ─────────────────────────────────────────────
-// TYPES
-// ─────────────────────────────────────────────
-
-// What the caller provides when recording a new sale
 export interface NewSaleInput {
-  inventoryId: number;
+  inventoryId: string;
   item: string;
   qty: number;
   amount: number;
@@ -39,43 +18,21 @@ interface SalesContextType {
   todaySales: Sale[];
   todayTotal: number;
   totalSalesCount: number;
-  addSale: (input: NewSaleInput) => void;
+  isLoading: boolean;
+  error: Error | null;
+  addSale: (input: NewSaleInput) => Promise<void>;
 }
-
-// ─────────────────────────────────────────────
-// CONTEXT
-// ─────────────────────────────────────────────
 
 const SalesContext = createContext<SalesContextType | undefined>(undefined);
 
-// ─────────────────────────────────────────────
-// PROVIDER
-// ─────────────────────────────────────────────
-
 export function SalesProvider({ children }: { children: ReactNode }) {
-  const [sales, setSales] = useState<Sale[]>(mockSales);
-  const { decrementStock } = useInventory();
+  const salesQuery = useSalesQuery();
+  const createSale = useCreateSaleMutation();
+  const sales = useMemo(
+    () => salesQuery.data ?? [],
+    [salesQuery.data]
+  );
 
-  const addSale = (input: NewSaleInput) => {
-    const newSale: Sale = {
-      id: `S-${String(sales.length + 1).padStart(3, "0")}`,
-      date: getTodayString(),
-      item: input.item,
-      inventoryId: input.inventoryId,
-      qty: input.qty,
-      amount: input.amount,
-      payment: input.payment,
-      worker: input.worker,
-      customer: input.customer,
-    };
-
-    setSales((prev) => [newSale, ...prev]);
-
-    // Keep inventory in sync — reduce stock for the sold item
-    decrementStock(input.inventoryId, input.qty);
-  };
-
-  // Derived values
   const todaySales = useMemo(
     () => getSalesByDate(sales, getTodayString()),
     [sales]
@@ -86,7 +43,9 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     [todaySales]
   );
 
-  const totalSalesCount = sales.length;
+  const addSale = async (input: NewSaleInput) => {
+    await createSale.mutateAsync(input);
+  };
 
   return (
     <SalesContext.Provider
@@ -94,7 +53,9 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         sales,
         todaySales,
         todayTotal,
-        totalSalesCount,
+        totalSalesCount: sales.length,
+        isLoading: salesQuery.isLoading,
+        error: salesQuery.error,
         addSale,
       }}
     >
@@ -102,10 +63,6 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     </SalesContext.Provider>
   );
 }
-
-// ─────────────────────────────────────────────
-// HOOK
-// ─────────────────────────────────────────────
 
 export function useSales(): SalesContextType {
   const context = useContext(SalesContext);

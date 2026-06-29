@@ -1,19 +1,20 @@
-// src/contexts/AuthContext.tsx
-//
-// Global authentication state for the entire app.
-// Any component can call useAuth() to get the current user,
-// check if they're logged in, or trigger login/logout.
-//
-// Phase 4 note: replace the MOCK_CREDENTIALS block and the login()
-// function body with: const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { apiFetch, clearAuthToken, getAuthToken, setAuthToken } from "@/lib/api";
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+interface ApiUser {
+  id: string;
+  email: string;
+  name: string;
+  role: "OWNER" | "WORKER";
+}
 
-// ─────────────────────────────────────────────
-// TYPES
-// ─────────────────────────────────────────────
+interface LoginResponse {
+  token: string;
+  user: ApiUser;
+}
 
 interface User {
+  id: string;
   email: string;
   name: string;
   role: "owner" | "worker";
@@ -27,68 +28,70 @@ interface AuthContextType {
   logout: () => void;
 }
 
-// ─────────────────────────────────────────────
-// CONTEXT
-// ─────────────────────────────────────────────
-
+const USER_KEY = "autoparts_user";
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// ─────────────────────────────────────────────
-// MOCK CREDENTIALS
-// TODO (Phase 4): delete this and replace login() with a real Supabase call
-// ─────────────────────────────────────────────
-
-const MOCK_CREDENTIALS = {
-  email: "owner@autopartspro.com",
-  password: "admin123",
-  user: {
-    email: "owner@autopartspro.com",
-    name: "Owner",
-    role: "owner" as const,
-  },
-};
-
-// ─────────────────────────────────────────────
-// PROVIDER
-// ─────────────────────────────────────────────
+function mapUser(user: ApiUser): User {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role.toLowerCase() as User["role"],
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // On startup: restore session from localStorage so the user
-  // stays logged in after a page refresh
   useEffect(() => {
-    const saved = localStorage.getItem("autoparts_user");
-    if (saved) {
-      try {
-        setUser(JSON.parse(saved) as User);
-      } catch {
-        localStorage.removeItem("autoparts_user");
+    const restoreSession = async () => {
+      const token = getAuthToken();
+      if (!token) {
+        localStorage.removeItem(USER_KEY);
+        setIsLoading(false);
+        return;
       }
-    }
-    setIsLoading(false);
+
+      try {
+        const apiUser = await apiFetch<ApiUser>("/auth/me");
+        const mappedUser = mapUser(apiUser);
+        setUser(mappedUser);
+        localStorage.setItem(USER_KEY, JSON.stringify(mappedUser));
+      } catch {
+        setUser(null);
+        clearAuthToken();
+        localStorage.removeItem(USER_KEY);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void restoreSession();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // TODO (Phase 4): replace with supabase.auth.signInWithPassword()
-    if (
-      email.trim().toLowerCase() === MOCK_CREDENTIALS.email &&
-      password === MOCK_CREDENTIALS.password
-    ) {
-      setUser(MOCK_CREDENTIALS.user);
-      localStorage.setItem(
-        "autoparts_user",
-        JSON.stringify(MOCK_CREDENTIALS.user)
-      );
+    try {
+      const result = await apiFetch<LoginResponse>("/auth/login", {
+        method: "POST",
+        auth: false,
+        body: JSON.stringify({ email, password }),
+      });
+      const mappedUser = mapUser(result.user);
+
+      setAuthToken(result.token);
+      setUser(mappedUser);
+      localStorage.setItem(USER_KEY, JSON.stringify(mappedUser));
       return true;
+    } catch {
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("autoparts_user");
+    clearAuthToken();
+    localStorage.removeItem(USER_KEY);
   };
 
   return (
@@ -105,10 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
-
-// ─────────────────────────────────────────────
-// HOOK
-// ─────────────────────────────────────────────
 
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
