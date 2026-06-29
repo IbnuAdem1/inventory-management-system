@@ -19,7 +19,9 @@ async function main() {
 
   const owner = await prisma.user.upsert({
     where: { email: "owner@autopartspro.com" },
-    update: {},
+    update: {
+      passwordHash,
+    },
     create: {
       email: "owner@autopartspro.com",
       passwordHash,

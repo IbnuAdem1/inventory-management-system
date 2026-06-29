@@ -23,7 +23,7 @@ export const reportsController = {
     }
   },
 
-  async getPaymentBreakdown(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getPaymentBreakdown(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await reportsService.getPaymentBreakdown();
       res.status(200).json(data);

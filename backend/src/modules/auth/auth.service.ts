@@ -2,7 +2,7 @@
 // All authentication business logic lives here.
 
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import { prisma } from "../../lib/prisma";
 import { env } from "../../config/env";
 import { AppError } from "../../types/index";
@@ -27,7 +27,7 @@ export const authService = {
     const token = jwt.sign(
       { id: user.id, email: user.email, name: user.name, role: user.role },
       env.JWT_SECRET,
-      { expiresIn: env.JWT_EXPIRES_IN }
+      { expiresIn: env.JWT_EXPIRES_IN as SignOptions["expiresIn"] }
     );
 
     return {
