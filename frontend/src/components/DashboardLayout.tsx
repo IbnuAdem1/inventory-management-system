@@ -16,6 +16,7 @@ import {
   UserRound,
   Building2,
   Landmark,
+  CreditCard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: Package,          label: "Inventory",  path: "/inventory" },
   { icon: ShoppingCart,     label: "Sales",      path: "/sales" },
+  { icon: CreditCard,       label: "Credits",    path: "/credits" },
   {
     icon: Contact2,
     label: "Contacts",

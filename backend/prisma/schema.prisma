@@ -32,11 +32,18 @@ enum ActivityType {
   STOCK
   AUTH
   PRICE
+  CREDIT
 }
 
 enum ContactType {
   CUSTOMER
   SUPPLIER
+}
+
+enum CreditStatus {
+  UNPAID
+  PARTIAL
+  PAID
 }
 
 // ─────────────────────────────────────────────
@@ -57,6 +64,7 @@ model User {
   // Relations
   sales        Sale[]
   activityLogs ActivityLog[]
+  creditPayments CreditPayment[]
 
   @@map("users")
 }
@@ -102,6 +110,7 @@ model Sale {
   // Relations
   worker        User          @relation(fields: [workerId], references: [id])
   items         SaleItem[]
+  credit        Credit?
 
   @@map("sales")
 }
@@ -163,6 +172,51 @@ model ActivityLog {
 // Monthly operating costs (rent, salaries, etc.)
 // Used by the Reports page for profit calculation
 // ─────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+// CREDITS
+// Created automatically when a sale uses CREDIT payment.
+// Tracks how much has been paid and outstanding balance.
+// ─────────────────────────────────────────────
+
+model Credit {
+  id           String          @id @default(uuid())
+  saleId       String          @unique @map("sale_id")
+  customerName String          @map("customer_name")
+  totalAmount  Decimal         @map("total_amount") @db.Decimal(10, 2)
+  paidAmount   Decimal         @default(0) @map("paid_amount") @db.Decimal(10, 2)
+  status       CreditStatus    @default(UNPAID)
+  notes        String?
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  sale         Sale            @relation(fields: [saleId], references: [id])
+  payments     CreditPayment[]
+
+  @@map("credits")
+}
+
+// ─────────────────────────────────────────────
+// CREDIT PAYMENTS
+// Each row is one partial or full payment against a credit.
+// ─────────────────────────────────────────────
+
+model CreditPayment {
+  id            String        @id @default(uuid())
+  creditId      String        @map("credit_id")
+  amount        Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod @map("payment_method")
+  note          String?
+  recordedById  String        @map("recorded_by_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  credit        Credit        @relation(fields: [creditId], references: [id])
+  recordedBy    User          @relation(fields: [recordedById], references: [id])
+
+  @@map("credit_payments")
+}
 
 model Contact {
   id          String      @id @default(uuid())

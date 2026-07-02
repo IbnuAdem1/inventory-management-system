@@ -156,6 +156,19 @@ export const salesService = {
         },
       });
 
+      // Step 6 — if payment method is CREDIT, create a credit record
+      if (input.paymentMethod === "CREDIT") {
+        await tx.credit.create({
+          data: {
+            saleId: sale.id,
+            customerName: input.customer,
+            totalAmount,
+            paidAmount: new Prisma.Decimal(0),
+            status: "UNPAID",
+          },
+        });
+      }
+
       return sale;
     }, {
       maxWait: 10000, // wait up to 10s to acquire a connection from pgBouncer
