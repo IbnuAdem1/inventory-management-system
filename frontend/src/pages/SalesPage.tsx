@@ -2,12 +2,15 @@ import { useState } from "react";
 import { Search, Receipt } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Input } from "@/components/ui/input";
+import InvoiceModal from "@/components/ui/InvoiceModal";
 import NewSaleForm from "@/components/forms/NewSaleForm";
 import { useSales } from "@/contexts/SalesContext";
+import type { Sale } from "@/types";
 
 const SalesPage = () => {
   const { sales, todayTotal, isLoading, error } = useSales();
   const [search, setSearch] = useState("");
+  const [invoiceSale, setInvoiceSale] = useState<Sale | null>(null);
 
   const filtered = sales.filter(
     (s) =>
@@ -18,7 +21,8 @@ const SalesPage = () => {
   );
 
   return (
-    <DashboardLayout>
+    <>
+      <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -101,7 +105,8 @@ const SalesPage = () => {
                     <td className="px-5 py-3 text-muted-foreground text-xs">{sale.customer}</td>
                     <td className="px-5 py-3">
                       <button
-                        aria-label={`View invoice for ${sale.id}`}
+                        aria-label={`View invoice for sale on ${sale.date}`}
+                        onClick={() => setInvoiceSale(sale)}
                         className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
                       >
                         <Receipt className="h-3.5 w-3.5" />
@@ -115,6 +120,13 @@ const SalesPage = () => {
         </div>
       </div>
     </DashboardLayout>
+
+      <InvoiceModal
+        sale={invoiceSale}
+        open={invoiceSale !== null}
+        onClose={() => setInvoiceSale(null)}
+      />
+    </>
   );
 };
 
