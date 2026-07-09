@@ -90,6 +90,11 @@ export interface Sale {
   payment: PaymentMethod;
   worker: string;          // name of worker who recorded the sale
   customer: string;        // customer name or "Walk-in"
+  bankAccount?: {          // only present when paymentMethod is Transfer
+    id: string;
+    accountName: string;
+    bankName: string;
+  };
 }
 
 // ─────────────────────────────────────────────

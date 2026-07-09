@@ -25,6 +25,7 @@ import {
   useAddCreditPaymentMutation,
   type Credit,
 } from "@/hooks/useCredits";
+import { useBankAccountsQuery } from "@/hooks/useBankAccounts";
 
 // ── Status badge ─────────────────────────────────────────────────────────────
 
@@ -53,9 +54,13 @@ interface PaymentModalProps {
 function PaymentModal({ credit, onClose }: PaymentModalProps) {
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<"CASH" | "TRANSFER">("CASH");
+  const [bankAccountId, setBankAccountId] = useState("");
   const [note, setNote] = useState("");
+  const [bankError, setBankError] = useState(false);
 
   const mutation = useAddCreditPaymentMutation(credit.id);
+  const { data: bankAccounts = [] } = useBankAccountsQuery();
+  const isTransfer = method === "TRANSFER";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,11 +74,16 @@ function PaymentModal({ credit, onClose }: PaymentModalProps) {
       toast.error(`Amount cannot exceed the remaining balance of $${credit.remainingAmount.toFixed(2)}.`);
       return;
     }
+    if (isTransfer && !bankAccountId) {
+      setBankError(true);
+      return;
+    }
 
     try {
       await mutation.mutateAsync({
         amount: parsed,
         paymentMethod: method,
+        bankAccountId: isTransfer ? bankAccountId : undefined,
         note: note.trim() || undefined,
       });
       toast.success(`Payment of $${parsed.toFixed(2)} recorded for ${credit.customerName}.`);
@@ -140,7 +150,14 @@ function PaymentModal({ credit, onClose }: PaymentModalProps) {
             </Label>
             <Select
               value={method}
-              onValueChange={(v) => setMethod(v as "CASH" | "TRANSFER")}
+              onValueChange={(v) => {
+                setMethod(v as "CASH" | "TRANSFER");
+                // Clear bank selection when switching away from Transfer
+                if (v !== "TRANSFER") {
+                  setBankAccountId("");
+                  setBankError(false);
+                }
+              }}
             >
               <SelectTrigger id="payment-method">
                 <SelectValue />
@@ -151,6 +168,47 @@ function PaymentModal({ credit, onClose }: PaymentModalProps) {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Bank account — only when Transfer */}
+          {isTransfer && (
+            <div className="space-y-1.5">
+              <Label htmlFor="bank-account">
+                Receiving Bank Account <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={bankAccountId}
+                onValueChange={(v) => {
+                  setBankAccountId(v);
+                  setBankError(false);
+                }}
+              >
+                <SelectTrigger
+                  id="bank-account"
+                  className={bankError ? "border-destructive" : ""}
+                >
+                  <SelectValue placeholder="Select account..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {bankAccounts.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      No active bank accounts
+                    </div>
+                  ) : (
+                    bankAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.accountName} — {account.bankName}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              {bankError && (
+                <p className="text-xs text-destructive">
+                  Please select a receiving bank account
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Note */}
           <div className="space-y-1.5">
@@ -170,7 +228,10 @@ function PaymentModal({ credit, onClose }: PaymentModalProps) {
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={mutation.isPending}>
+            <Button
+              type="submit"
+              disabled={mutation.isPending || (isTransfer && !bankAccountId)}
+            >
               {mutation.isPending ? "Recording…" : "Record Payment"}
             </Button>
           </div>

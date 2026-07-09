@@ -11,6 +11,7 @@ interface ApiCreditPayment {
   note?: string | null;
   createdAt: string;
   recordedBy: { id: string; name: string };
+  bankAccount?: { id: string; accountHolderName: string; bankName: string } | null;
 }
 
 interface ApiCredit {
@@ -37,6 +38,7 @@ export interface CreditPayment {
   paymentMethod: "Cash" | "Transfer";
   note?: string;
   recordedBy: string;
+  bankAccountName?: string; // "AccountName — BankName" if Transfer
   createdAt: string;
 }
 
@@ -46,7 +48,7 @@ export interface Credit {
   customerName: string;
   totalAmount: number;
   paidAmount: number;
-  remainingAmount: number; // computed: totalAmount - paidAmount
+  remainingAmount: number;
   status: "UNPAID" | "PARTIAL" | "PAID";
   payments: CreditPayment[];
   createdAt: string;
@@ -58,6 +60,7 @@ export interface Credit {
 export interface AddPaymentInput {
   amount: number;
   paymentMethod: "CASH" | "TRANSFER";
+  bankAccountId?: string;
   note?: string;
 }
 
@@ -83,6 +86,9 @@ function mapCredit(raw: ApiCredit): Credit {
       paymentMethod: pmFromApi(p.paymentMethod),
       note: p.note ?? undefined,
       recordedBy: p.recordedBy.name,
+      bankAccountName: p.bankAccount
+        ? `${p.bankAccount.accountHolderName} — ${p.bankAccount.bankName}`
+        : undefined,
       createdAt: p.createdAt,
     })),
     createdAt: raw.createdAt,

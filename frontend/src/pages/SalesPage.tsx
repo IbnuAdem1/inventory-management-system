@@ -63,6 +63,7 @@ const SalesPage = () => {
                 <th className="px-5 py-3 font-medium text-center">Qty</th>
                 <th className="px-5 py-3 font-medium text-right">Amount</th>
                 <th className="px-5 py-3 font-medium">Payment</th>
+                <th className="px-5 py-3 font-medium">Bank Account</th>
                 <th className="px-5 py-3 font-medium">Worker</th>
                 <th className="px-5 py-3 font-medium">Customer</th>
                 <th className="px-5 py-3 font-medium">Invoice</th>
@@ -71,7 +72,7 @@ const SalesPage = () => {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={10} className="px-5 py-10 text-center text-sm text-muted-foreground">
                     No sales found matching your search.
                   </td>
                 </tr>
@@ -92,6 +93,11 @@ const SalesPage = () => {
                       <span className="inline-flex rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
                         {sale.payment}
                       </span>
+                    </td>
+                    <td className="px-5 py-3 text-xs text-muted-foreground">
+                      {sale.payment === "Transfer" && sale.bankAccount
+                        ? `${sale.bankAccount.accountName} — ${sale.bankAccount.bankName}`
+                        : "—"}
                     </td>
                     <td className="px-5 py-3 text-muted-foreground">{sale.worker}</td>
                     <td className="px-5 py-3 text-muted-foreground text-xs">{sale.customer}</td>

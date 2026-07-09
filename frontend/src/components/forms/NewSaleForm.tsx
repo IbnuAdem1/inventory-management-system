@@ -1,10 +1,7 @@
 // src/components/forms/NewSaleForm.tsx
 //
 // Dialog form for recording a new sale.
-// Selects a part from inventory, sets qty, payment, customer.
-// On submit:
-//   - Calls addSale() from SalesContext (which also decrements stock via InventoryContext)
-//   - Shows a success toast
+// When payment is Transfer, a bank account selector is shown and required.
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,21 +36,33 @@ import {
 import { useInventory } from "@/contexts/InventoryContext";
 import { useSales } from "@/contexts/SalesContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBankAccountsQuery } from "@/hooks/useBankAccounts";
 import { toast } from "sonner";
 
 // ─────────────────────────────────────────────
 // SCHEMA
 // ─────────────────────────────────────────────
 
-const schema = z.object({
-  inventoryId: z.string().min(1, "Please select a part"),
-  qty: z.coerce.number().int().min(1, "Quantity must be at least 1"),
-  payment: z.enum(["Cash", "Transfer", "Credit"], {
-    required_error: "Please select a payment method",
-  }),
-  worker: z.string().min(1, "Please select a worker"),
-  customer: z.string().min(1, "Customer name is required"),
-});
+const schema = z
+  .object({
+    inventoryId: z.string().min(1, "Please select a part"),
+    qty: z.coerce.number().int().min(1, "Quantity must be at least 1"),
+    payment: z.enum(["Cash", "Transfer", "Credit"], {
+      required_error: "Please select a payment method",
+    }),
+    worker: z.string().min(1, "Please select a worker"),
+    customer: z.string().min(1, "Customer name is required"),
+    bankAccountId: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.payment === "Transfer" && !data.bankAccountId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bankAccountId"],
+        message: "Please select a receiving bank account",
+      });
+    }
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -66,6 +75,7 @@ const NewSaleForm = () => {
   const { inventory } = useInventory();
   const { addSale } = useSales();
   const { user } = useAuth();
+  const { data: bankAccounts = [] } = useBankAccountsQuery();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -75,19 +85,20 @@ const NewSaleForm = () => {
       payment: "Cash",
       worker: user?.name ?? "",
       customer: "Walk-in",
+      bankAccountId: "",
     },
   });
 
-  // Watch inventoryId to compute amount and show max stock
   const selectedId = form.watch("inventoryId");
   const selectedQty = form.watch("qty");
+  const paymentMethod = form.watch("payment");
   const selectedItem = inventory.find((i) => i.id === selectedId);
   const totalAmount = selectedItem ? selectedItem.sellingPrice * (selectedQty || 0) : 0;
+  const isTransfer = paymentMethod === "Transfer";
 
   const onSubmit = async (values: FormValues) => {
     if (!selectedItem) return;
 
-    // Guard: can't sell more than what's in stock
     if (values.qty > selectedItem.stock) {
       form.setError("qty", {
         message: `Only ${selectedItem.stock} unit${selectedItem.stock !== 1 ? "s" : ""} in stock.`,
@@ -104,6 +115,7 @@ const NewSaleForm = () => {
         payment: values.payment,
         worker: values.worker,
         customer: values.customer,
+        bankAccountId: isTransfer ? values.bankAccountId : undefined,
       });
 
       toast.success(
@@ -115,6 +127,7 @@ const NewSaleForm = () => {
         payment: "Cash",
         worker: user?.name ?? "",
         customer: "Walk-in",
+        bankAccountId: "",
       });
       setOpen(false);
     } catch (error) {
@@ -146,10 +159,7 @@ const NewSaleForm = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Part</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                    >
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a part..." />
@@ -215,7 +225,17 @@ const NewSaleForm = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Payment Method</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        // Clear bank account when switching away from Transfer
+                        if (val !== "Transfer") {
+                          form.setValue("bankAccountId", "");
+                          form.clearErrors("bankAccountId");
+                        }
+                      }}
+                      value={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue />
@@ -231,6 +251,42 @@ const NewSaleForm = () => {
                   </FormItem>
                 )}
               />
+
+              {/* Bank account — only shown when Transfer is selected */}
+              {isTransfer && (
+                <FormField
+                  control={form.control}
+                  name="bankAccountId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Receiving Bank Account <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select account..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {bankAccounts.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-muted-foreground">
+                              No active bank accounts
+                            </div>
+                          ) : (
+                            bankAccounts.map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.accountName} — {account.bankName}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               {/* Worker */}
               <FormField
@@ -286,7 +342,11 @@ const NewSaleForm = () => {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={!selectedItem || form.formState.isSubmitting}
+                  disabled={
+                    !selectedItem ||
+                    form.formState.isSubmitting ||
+                    (isTransfer && !form.watch("bankAccountId"))
+                  }
                 >
                   {form.formState.isSubmitting ? "Recording..." : "Record Sale"}
                 </Button>

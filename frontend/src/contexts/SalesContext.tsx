@@ -11,6 +11,7 @@ export interface NewSaleInput {
   payment: PaymentMethod;
   worker: string;
   customer: string;
+  bankAccountId?: string;
 }
 
 interface SalesContextType {

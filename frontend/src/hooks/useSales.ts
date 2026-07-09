@@ -6,11 +6,19 @@ import type { NewSaleInput } from "@/contexts/SalesContext";
 
 type ApiPaymentMethod = "CASH" | "TRANSFER" | "CREDIT";
 
+// ── API shapes (raw from backend) ──────────────────────────────────────────
+
 interface ApiSaleItem {
   inventoryId: string;
   itemName: string;
   quantity: number;
   amount: string | number;
+}
+
+interface ApiBankAccountRef {
+  id: string;
+  accountHolderName: string;
+  bankName: string;
 }
 
 interface ApiSale {
@@ -24,6 +32,7 @@ interface ApiSale {
     name: string;
   };
   items: ApiSaleItem[];
+  bankAccount?: ApiBankAccountRef | null;
 }
 
 const paymentFromApi: Record<ApiPaymentMethod, PaymentMethod> = {
@@ -54,6 +63,13 @@ function mapSale(sale: ApiSale): Sale {
     payment: paymentFromApi[sale.paymentMethod],
     worker: sale.worker?.name ?? "Unknown",
     customer: sale.customer,
+    bankAccount: sale.bankAccount
+      ? {
+          id: sale.bankAccount.id,
+          accountName: sale.bankAccount.accountHolderName,
+          bankName: sale.bankAccount.bankName,
+        }
+      : undefined,
   };
 }
 
@@ -81,6 +97,7 @@ export function useCreateSaleMutation() {
         body: JSON.stringify({
           customer: input.customer,
           paymentMethod: paymentToApi[input.payment],
+          ...(input.bankAccountId ? { bankAccountId: input.bankAccountId } : {}),
           items: [
             {
               inventoryId: input.inventoryId,
