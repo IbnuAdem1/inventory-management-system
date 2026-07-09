@@ -20,7 +20,6 @@ const RecentSalesTable = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th className="px-5 py-3 font-medium">ID</th>
                 <th className="px-5 py-3 font-medium">Item</th>
                 <th className="px-5 py-3 font-medium">Worker</th>
                 <th className="px-5 py-3 font-medium text-right">Amount</th>
@@ -33,7 +32,6 @@ const RecentSalesTable = () => {
                   key={sale.id}
                   className="border-b border-border/50 last:border-0 hover:bg-muted/50 transition-colors"
                 >
-                  <td className="px-5 py-3 font-mono text-xs text-primary">{sale.id}</td>
                   <td className="px-5 py-3 text-card-foreground">{sale.item}</td>
                   <td className="px-5 py-3 text-muted-foreground">{sale.worker}</td>
                   <td className="px-5 py-3 text-right font-mono font-medium text-card-foreground">
