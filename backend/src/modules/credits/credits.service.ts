@@ -28,6 +28,7 @@ export const creditsService = {
         payments: {
           include: {
             recordedBy: { select: { id: true, name: true } },
+            bankAccount: { select: { id: true, accountHolderName: true, bankName: true } },
           },
           orderBy: { createdAt: "asc" },
         },
@@ -50,6 +51,7 @@ export const creditsService = {
         payments: {
           include: {
             recordedBy: { select: { id: true, name: true } },
+            bankAccount: { select: { id: true, accountHolderName: true, bankName: true } },
           },
           orderBy: { createdAt: "asc" },
         },
@@ -106,6 +108,7 @@ export const creditsService = {
           amount: paymentAmount,
           paymentMethod: input.paymentMethod,
           note: input.note ?? null,
+          bankAccountId: input.paymentMethod === "TRANSFER" ? input.bankAccountId : null,
           recordedById: user.id,
         },
       });
@@ -124,7 +127,10 @@ export const creditsService = {
         },
         include: {
           payments: {
-            include: { recordedBy: { select: { id: true, name: true } } },
+            include: {
+              recordedBy: { select: { id: true, name: true } },
+              bankAccount: { select: { id: true, accountHolderName: true, bankName: true } },
+            },
             orderBy: { createdAt: "asc" },
           },
           sale: {

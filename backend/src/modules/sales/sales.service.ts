@@ -32,6 +32,7 @@ export const salesService = {
             inventory: { select: { id: true, name: true, brand: true } },
           },
         },
+        bankAccount: { select: { id: true, accountHolderName: true, bankName: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -61,6 +62,7 @@ export const salesService = {
             inventory: { select: { id: true, name: true, brand: true } },
           },
         },
+        bankAccount: { select: { id: true, accountHolderName: true, bankName: true } },
       },
     });
     if (!sale) throw new AppError("Sale not found", 404);
@@ -115,6 +117,7 @@ export const salesService = {
           customer: input.customer,
           paymentMethod: input.paymentMethod,
           totalAmount,
+          bankAccountId: input.paymentMethod === "TRANSFER" ? input.bankAccountId : null,
           items: {
             create: inventoryItems.map(({ inv, quantity }) => ({
               inventoryId: inv.id,
@@ -128,6 +131,7 @@ export const salesService = {
         include: {
           items: true,
           worker: { select: { id: true, name: true } },
+          bankAccount: { select: { id: true, accountHolderName: true, bankName: true } },
         },
       });
 
