@@ -57,7 +57,6 @@ const SalesPage = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th className="px-5 py-3 font-medium">ID</th>
                 <th className="px-5 py-3 font-medium">Date</th>
                 <th className="px-5 py-3 font-medium">Item</th>
                 <th className="px-5 py-3 font-medium text-center">Qty</th>
@@ -72,7 +71,7 @@ const SalesPage = () => {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={9} className="px-5 py-10 text-center text-sm text-muted-foreground">
                     No sales found matching your search.
                   </td>
                 </tr>
@@ -82,7 +81,6 @@ const SalesPage = () => {
                     key={sale.id}
                     className="border-b border-border/50 last:border-0 hover:bg-muted/50 transition-colors"
                   >
-                    <td className="px-5 py-3 font-mono text-xs text-primary">{sale.id}</td>
                     <td className="px-5 py-3 text-xs text-muted-foreground">{sale.date}</td>
                     <td className="px-5 py-3 text-card-foreground">{sale.item}</td>
                     <td className="px-5 py-3 text-center font-mono">{sale.qty}</td>
