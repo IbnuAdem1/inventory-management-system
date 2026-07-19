@@ -1,10 +1,10 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../../lib/prisma";
-import { AppError } from "../../types/index";
+import { AppError, RequestUser } from "../../types/index";
 import {
-  PasswordChangeInput,
   UserCreateInput,
-  UserUpdateInput,
+  UserPasswordResetInput,
+  UserStatusInput,
 } from "./users.schema";
 
 const userSelect = {
@@ -15,11 +15,29 @@ const userSelect = {
   isActive: true,
   createdAt: true,
   updatedAt: true,
-};
+} as const;
+
+async function logUserAction(
+  actor: RequestUser,
+  action: string,
+  detail: string
+): Promise<void> {
+  await prisma.activityLog.create({
+    data: {
+      workerId: actor.id,
+      workerName: actor.name,
+      action,
+      detail,
+      type: "USER",
+    },
+  });
+}
 
 export const usersService = {
-  async getAll() {
+  /** List all users except the requesting owner. */
+  async getAll(actor: RequestUser) {
     const users = await prisma.user.findMany({
+      where: { id: { not: actor.id } },
       select: userSelect,
       orderBy: { createdAt: "desc" },
     });
@@ -27,7 +45,8 @@ export const usersService = {
     return users;
   },
 
-  async create(input: UserCreateInput) {
+  /** Create a new WORKER account (role is always WORKER). */
+  async create(input: UserCreateInput, actor: RequestUser) {
     const email = input.email.toLowerCase().trim();
     const existing = await prisma.user.findUnique({ where: { email } });
 
@@ -40,51 +59,133 @@ export const usersService = {
     const user = await prisma.user.create({
       data: {
         email,
-        name: input.name,
+        name: input.name.trim(),
         passwordHash,
-        role: input.role,
+        role: "WORKER",
       },
       select: userSelect,
     });
 
-    return user;
-  },
-
-  async update(id: string, input: UserUpdateInput) {
-    const data = {
-      ...input,
-      email: input.email?.toLowerCase().trim(),
-    };
-
-    const user = await prisma.user.update({
-      where: { id },
-      data,
-      select: userSelect,
-    });
+    await logUserAction(
+      actor,
+      "Added worker",
+      `${user.name} (${user.email})`
+    );
 
     return user;
   },
 
-  async changePassword(id: string, input: PasswordChangeInput) {
-    const user = await prisma.user.findUnique({ where: { id } });
+  /** Activate or deactivate a worker. */
+  async updateStatus(
+    id: string,
+    input: UserStatusInput,
+    actor: RequestUser
+  ) {
+    if (id === actor.id) {
+      throw new AppError("Cannot deactivate yourself", 400);
+    }
 
-    if (!user) {
+    const target = await prisma.user.findUnique({ where: { id } });
+
+    if (!target) {
       throw new AppError("User not found", 404);
     }
 
-    const isValid = await bcrypt.compare(input.currentPassword, user.passwordHash);
-
-    if (!isValid) {
-      throw new AppError("Current password is incorrect", 401);
+    if (target.role === "OWNER") {
+      throw new AppError("Cannot modify OWNER accounts", 403);
     }
 
-    const passwordHash = await bcrypt.hash(input.newPassword, 12);
+    const user = await prisma.user.update({
+      where: { id },
+      data: { isActive: input.isActive },
+      select: userSelect,
+    });
+
+    await logUserAction(
+      actor,
+      input.isActive ? "Activated worker" : "Deactivated worker",
+      `${user.name} (${user.email})`
+    );
+
+    return user;
+  },
+
+  /** Owner resets a worker's password (no current password required). */
+  async resetPassword(
+    id: string,
+    input: UserPasswordResetInput,
+    actor: RequestUser
+  ) {
+    const target = await prisma.user.findUnique({ where: { id } });
+
+    if (!target) {
+      throw new AppError("User not found", 404);
+    }
+
+    if (target.role === "OWNER") {
+      throw new AppError("Cannot reset OWNER password from here", 403);
+    }
+
+    const passwordHash = await bcrypt.hash(input.password, 12);
 
     await prisma.user.update({
       where: { id },
       data: { passwordHash },
     });
 
-    return { message: "Password changed successfully" };
+    await logUserAction(
+      actor,
+      "Reset worker password",
+      `${target.name} (${target.email})`
+    );
+
+    return { message: "Password reset successfully" };
+  },
+
+  /** Hard-delete a worker account. */
+  async delete(id: string, actor: RequestUser) {
+    if (id === actor.id) {
+      throw new AppError("Cannot delete yourself", 400);
+    }
+
+    const target = await prisma.user.findUnique({ where: { id } });
+
+    if (!target) {
+      throw new AppError("User not found", 404);
+    }
+
+    if (target.role === "OWNER") {
+      throw new AppError("Cannot delete OWNER accounts", 403);
+    }
+
+    const [salesCount, paymentsCount] = await Promise.all([
+      prisma.sale.count({ where: { workerId: id } }),
+      prisma.creditPayment.count({ where: { recordedById: id } }),
+    ]);
+
+    if (salesCount > 0 || paymentsCount > 0) {
+      throw new AppError(
+        "Cannot delete worker with existing sales or payment records. Deactivate them instead.",
+        409
+      );
+    }
+
+    // Remove activity logs attributed to this worker so FK does not block delete.
+    // Owner's audit entry for the deletion is written after.
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.activityLog.deleteMany({ where: { workerId: id } });
+        await tx.user.delete({ where: { id } });
+      },
+      { maxWait: 10000, timeout: 15000 }
+    );
+
+    await logUserAction(
+      actor,
+      "Deleted worker",
+      `${target.name} (${target.email})`
+    );
+
+    return { message: "Worker deleted successfully" };
   },
 };

@@ -1,4 +1,4 @@
-import { Shield, ShoppingCart, Package, Edit, Loader2 } from "lucide-react";
+import { Shield, ShoppingCart, Package, Edit, Loader2, CreditCard, UserCog } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useActivityQuery } from "@/hooks/useActivity";
 import { useUsersQuery } from "@/hooks/useUsers";
@@ -9,6 +9,8 @@ const iconMap: Record<ActivityType, React.ElementType> = {
   stock: Package,
   auth: Shield,
   price: Edit,
+  credit: CreditCard,
+  user: UserCog,
 };
 
 const colorMap: Record<ActivityType, string> = {
@@ -16,6 +18,8 @@ const colorMap: Record<ActivityType, string> = {
   stock: "text-success",
   auth: "text-muted-foreground",
   price: "text-destructive",
+  credit: "text-warning",
+  user: "text-blue-400",
 };
 
 const ActivityPage = () => {

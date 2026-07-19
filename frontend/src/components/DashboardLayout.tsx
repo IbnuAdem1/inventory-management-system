@@ -115,9 +115,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </button>
         </div>
 
-        {/* Nav */}
+        {/* Nav — Settings is owner-only */}
         <nav className="flex-1 space-y-1 p-3">
-          {navItems.map((item) => {
+          {navItems
+            .filter((item) => item.path !== "/settings" || user?.role === "owner")
+            .map((item) => {
             const isContacts = item.path === "/contacts";
             const isActive = location.pathname === item.path;
             const activeSection = new URLSearchParams(location.search).get("section") ?? "customer";

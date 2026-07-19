@@ -1,34 +1,38 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, getAuthToken } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
-export interface StaffUser {
+export interface WorkerUser {
   id: string;
-  email: string;
   name: string;
+  email: string;
   role: "OWNER" | "WORKER";
   isActive: boolean;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface UserCreateInput {
-  email: string;
   name: string;
+  email: string;
   password: string;
-  role: "OWNER" | "WORKER";
 }
 
-export interface PasswordChangeInput {
-  currentPassword: string;
-  newPassword: string;
+export interface UserStatusInput {
+  isActive: boolean;
+}
+
+export interface UserPasswordResetInput {
+  password: string;
 }
 
 export function useUsersQuery() {
+  const { isAuthenticated } = useAuth();
+
   return useQuery({
     queryKey: ["users"],
-    enabled: Boolean(getAuthToken()),
+    enabled: isAuthenticated,
     retry: false,
-    queryFn: () => apiFetch<StaffUser[]>("/users"),
+    queryFn: () => apiFetch<WorkerUser[]>("/users"),
   });
 }
 
@@ -37,7 +41,7 @@ export function useCreateUserMutation() {
 
   return useMutation({
     mutationFn: (input: UserCreateInput) =>
-      apiFetch<StaffUser>("/users", {
+      apiFetch<WorkerUser>("/users", {
         method: "POST",
         body: JSON.stringify(input),
       }),
@@ -47,12 +51,46 @@ export function useCreateUserMutation() {
   });
 }
 
-export function useChangePasswordMutation() {
+export function useUpdateUserStatusMutation() {
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: PasswordChangeInput }) =>
+    mutationFn: ({ id, input }: { id: string; input: UserStatusInput }) =>
+      apiFetch<WorkerUser>(`/users/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
+export function useResetUserPasswordMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UserPasswordResetInput }) =>
       apiFetch<{ message: string }>(`/users/${id}/password`, {
         method: "PATCH",
         body: JSON.stringify(input),
       }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
+export function useDeleteUserMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ message: string }>(`/users/${id}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
   });
 }

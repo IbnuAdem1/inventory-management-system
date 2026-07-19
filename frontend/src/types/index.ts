@@ -21,7 +21,7 @@ export type PaymentMethod = "Cash" | "Transfer" | "Credit";
 // Every action recorded in the Activity page has one of these types.
 // Used to determine which icon and color to show.
 // ─────────────────────────────────────────────
-export type ActivityType = "sale" | "stock" | "auth" | "price";
+export type ActivityType = "sale" | "stock" | "auth" | "price" | "credit" | "user";
 
 // ─────────────────────────────────────────────
 // WORKER / USER

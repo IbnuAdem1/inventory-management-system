@@ -41,7 +41,7 @@ const App = () => (
                 <Route path="/credits" element={<ProtectedRoute><CreditsPage /></ProtectedRoute>} />
                 <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
                 <Route path="/activity" element={<ProtectedRoute><ActivityPage /></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute requiredRole="owner"><SettingsPage /></ProtectedRoute>} />
 
                 {/* 404 */}
                 <Route path="*" element={<NotFound />} />

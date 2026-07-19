@@ -33,6 +33,7 @@ enum ActivityType {
   AUTH
   PRICE
   CREDIT
+  USER
 }
 
 enum ContactType {

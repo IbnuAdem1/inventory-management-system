@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch, getAuthToken } from "@/lib/api";
 import type { ActivityLog, ActivityType } from "@/types";
 
-type ApiActivityType = "SALE" | "STOCK" | "AUTH" | "PRICE";
+type ApiActivityType = "SALE" | "STOCK" | "AUTH" | "PRICE" | "CREDIT" | "USER";
 
 interface ApiActivityLog {
   id: string;
@@ -19,6 +19,8 @@ const activityTypeMap: Record<ApiActivityType, ActivityType> = {
   STOCK: "stock",
   AUTH: "auth",
   PRICE: "price",
+  CREDIT: "credit",
+  USER: "user",
 };
 
 function formatTime(value: string): string {
