@@ -129,8 +129,12 @@ export interface MonthlyReport {
 // A single line item in the operating expenses breakdown.
 // ─────────────────────────────────────────────
 export interface Expense {
-  category: string; // e.g. "Rent", "Salaries"
+  id: string;
+  category: string;
   amount: number;
+  month: number;
+  year: number;
+  createdAt: string;
 }
 
 // ─────────────────────────────────────────────

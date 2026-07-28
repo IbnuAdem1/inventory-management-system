@@ -14,6 +14,7 @@ import usersRoutes from "./modules/users/users.routes";
 import contactsRoutes from "./modules/contacts/contacts.routes";
 import bankAccountsRoutes from "./modules/bank-accounts/bank-accounts.routes";
 import creditsRoutes from "./modules/credits/credits.routes";
+import expensesRoutes from "./modules/expenses/expenses.routes";
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use("/api/v1/users", usersRoutes);
 app.use("/api/v1/contacts", contactsRoutes);
 app.use("/api/v1/bank-accounts", bankAccountsRoutes);
 app.use("/api/v1/credits", creditsRoutes);
+app.use("/api/v1/expenses", expensesRoutes);
 
 app.use((_req, res) => res.status(404).json({ message: "Route not found" }));
 app.use(errorHandler);

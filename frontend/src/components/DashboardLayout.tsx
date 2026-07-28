@@ -17,6 +17,7 @@ import {
   Building2,
   Landmark,
   CreditCard,
+  Receipt,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,7 @@ const navItems: NavItem[] = [
   },
   { icon: BarChart3,        label: "Reports",    path: "/reports" },
   { icon: Users,            label: "Activity",   path: "/activity" },
+  { icon: Receipt,          label: "Expenses",   path: "/expenses" },
   { icon: Settings,         label: "Settings",   path: "/settings" },
 ];
 
@@ -118,7 +120,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {/* Nav — Settings is owner-only */}
         <nav className="flex-1 space-y-1 p-3">
           {navItems
-            .filter((item) => item.path !== "/settings" || user?.role === "owner")
+            .filter((item) => (item.path !== "/settings" && item.path !== "/expenses") || user?.role === "owner")
             .map((item) => {
             const isContacts = item.path === "/contacts";
             const isActive = location.pathname === item.path;
