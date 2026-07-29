@@ -14,12 +14,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import AddInventoryForm from "@/components/forms/AddInventoryForm";
 import EditInventoryForm from "@/components/forms/EditInventoryForm";
-import { useInventory, getMarginPercent } from "@/contexts/InventoryContext";
+import { useInventory } from "@/contexts/InventoryContext";
+import { useAuth } from "@/contexts/AuthContext";
 import type { InventoryItem } from "@/types";
 import { toast } from "sonner";
 
 const InventoryPage = () => {
   const { inventory, deleteItem, isLoading, error } = useInventory();
+  const { user } = useAuth();
+  const isOwner = user?.role === "owner";
   const [search, setSearch] = useState("");
 
   // Edit dialog state
@@ -103,17 +106,18 @@ const InventoryPage = () => {
                 <th className="px-5 py-3 font-medium">Part Name</th>
                 <th className="px-5 py-3 font-medium">Brand</th>
                 <th className="px-5 py-3 font-medium">Compatibility</th>
-                <th className="px-5 py-3 font-medium text-right">Cost</th>
+                {isOwner && (
+                  <th className="px-5 py-3 font-medium text-right">Cost</th>
+                )}
                 <th className="px-5 py-3 font-medium text-right">Price</th>
                 <th className="px-5 py-3 font-medium text-right">Stock</th>
-                <th className="px-5 py-3 font-medium text-right">Margin</th>
                 <th className="px-5 py-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={isOwner ? 7 : 6} className="px-5 py-10 text-center text-sm text-muted-foreground">
                     {inventory.length === 0
                       ? "No parts in inventory yet. Click \"Add Part\" to get started."
                       : "No parts found matching your search."}
@@ -121,7 +125,6 @@ const InventoryPage = () => {
                 </tr>
               ) : (
                 filtered.map((item) => {
-                  const margin = getMarginPercent(item).toFixed(0);
                   const isLow = item.stock <= item.minStock;
                   return (
                     <tr
@@ -131,9 +134,11 @@ const InventoryPage = () => {
                       <td className="px-5 py-3 font-medium text-card-foreground">{item.name}</td>
                       <td className="px-5 py-3 text-muted-foreground">{item.brand}</td>
                       <td className="px-5 py-3 text-muted-foreground text-xs">{item.compatibility}</td>
-                      <td className="px-5 py-3 text-right font-mono text-muted-foreground">
-                        ${item.costPrice.toFixed(2)}
-                      </td>
+                      {isOwner && (
+                        <td className="px-5 py-3 text-right font-mono text-muted-foreground">
+                          ${item.costPrice.toFixed(2)}
+                        </td>
+                      )}
                       <td className="px-5 py-3 text-right font-mono font-medium text-card-foreground">
                         ${item.sellingPrice.toFixed(2)}
                       </td>
@@ -142,7 +147,6 @@ const InventoryPage = () => {
                           {item.stock}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-right font-mono text-success">{margin}%</td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-1">
                           <button
