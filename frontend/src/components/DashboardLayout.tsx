@@ -18,11 +18,20 @@ import {
   Landmark,
   CreditCard,
   Receipt,
+  KeyRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import ChangePasswordModal from "@/components/ui/ChangePasswordModal";
 
 type NavChildItem = {
   icon: LucideIcon;
@@ -65,6 +74,7 @@ interface DashboardLayoutProps {
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [contactsOpen, setContactsOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -232,23 +242,52 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-sm font-medium text-foreground">
-                {user?.name ?? "Owner"}
-              </p>
-              <p className="text-xs text-muted-foreground capitalize">
-                {user?.role ?? "Admin"}
-              </p>
-            </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-              {avatarInitial}
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-3 rounded-md px-2 py-1 hover:bg-muted/50 transition-colors focus:outline-none">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-foreground">
+                      {user?.name ?? "Owner"}
+                    </p>
+                    <p className="text-xs text-muted-foreground capitalize">
+                      {user?.role ?? "Admin"}
+                    </p>
+                  </div>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                    {avatarInitial}
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem
+                  onClick={() => setChangePasswordOpen(true)}
+                  className="cursor-pointer"
+                >
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  Change Password
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  className="cursor-pointer text-destructive focus:text-destructive"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
       </div>
+
+      {/* Change Password modal — triggered from top-right dropdown */}
+      <ChangePasswordModal
+        open={changePasswordOpen}
+        onOpenChange={setChangePasswordOpen}
+      />
     </div>
   );
 };

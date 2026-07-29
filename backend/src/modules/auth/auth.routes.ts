@@ -3,7 +3,7 @@ import { Router } from "express";
 import { authController } from "./auth.controller";
 import { authMiddleware } from "../../middleware/auth.middleware";
 import { validate } from "../../middleware/validate.middleware";
-import { LoginSchema } from "./auth.schema";
+import { LoginSchema, ChangePasswordSchema } from "./auth.schema";
 import rateLimit from "express-rate-limit";
 
 const loginLimiter = rateLimit({
@@ -19,5 +19,6 @@ const router = Router();
 router.post("/login", loginLimiter, validate(LoginSchema), authController.login);
 router.get("/me", authMiddleware, authController.getMe);
 router.post("/logout", authMiddleware, authController.logout);
+router.patch("/password", authMiddleware, validate(ChangePasswordSchema), authController.changePassword);
 
 export default router;

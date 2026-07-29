@@ -24,9 +24,15 @@ export const authController = {
   },
 
   logout(_req: Request, res: Response): void {
-    // JWT is stateless — client discards the token.
-    // This endpoint exists to log the action and give the frontend
-    // a clean endpoint to call.
     res.status(200).json({ message: "Logged out successfully" });
+  },
+
+  async changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await authService.changePassword(req.user!.id, req.body);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
   },
 };

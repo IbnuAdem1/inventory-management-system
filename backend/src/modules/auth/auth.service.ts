@@ -6,7 +6,7 @@ import jwt, { SignOptions } from "jsonwebtoken";
 import { prisma } from "../../lib/prisma";
 import { env } from "../../config/env";
 import { AppError } from "../../types/index";
-import { LoginInput } from "./auth.schema";
+import { LoginInput, ChangePasswordInput } from "./auth.schema";
 
 export const authService = {
   async login(input: LoginInput) {
@@ -49,5 +49,44 @@ export const authService = {
 
     if (!user) throw new AppError("User not found", 404);
     return user;
+  },
+
+  async changePassword(userId: string, input: ChangePasswordInput) {
+    // Step 1: validate newPassword === confirmPassword
+    if (input.newPassword !== input.confirmPassword) {
+      throw new AppError("Passwords do not match", 400);
+    }
+
+    // Step 2: fetch user with password hash
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new AppError("User not found", 404);
+
+    // Step 3: verify current password
+    const isValid = await bcrypt.compare(input.currentPassword, user.passwordHash);
+    if (!isValid) {
+      throw new AppError("Current password is incorrect", 400);
+    }
+
+    // Step 4: hash new password
+    const newHash = await bcrypt.hash(input.newPassword, 12);
+
+    // Step 5: update
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newHash },
+    });
+
+    // Step 6: write activity log
+    await prisma.activityLog.create({
+      data: {
+        workerId: userId,
+        workerName: user.name,
+        action: "Changed own password",
+        detail: "Password changed successfully",
+        type: "AUTH",
+      },
+    });
+
+    return { message: "Password changed successfully" };
   },
 };

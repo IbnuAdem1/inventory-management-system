@@ -50,9 +50,9 @@ function InvoiceContent({ sale }: { sale: Sale }) {
         </div>
       </div>
 
-      {/* Customer + Payment */}
+      {/* Customer + Payment + Worker */}
       <div style={{ marginTop: "1.25rem", paddingBottom: "1.25rem", borderBottom: "1px solid #e5e7eb" }}>
-        <div style={{ display: "flex", gap: "2rem", fontSize: "0.875rem" }}>
+        <div style={{ display: "flex", gap: "2rem", fontSize: "0.875rem", flexWrap: "wrap" }}>
           <div>
             <span style={{ color: "#6b7280" }}>Customer: </span>
             <span style={{ fontWeight: 600, color: "#111827" }}>{sale.customer}</span>
@@ -60,6 +60,10 @@ function InvoiceContent({ sale }: { sale: Sale }) {
           <div>
             <span style={{ color: "#6b7280" }}>Payment: </span>
             <span style={{ fontWeight: 600, color: "#111827" }}>{sale.payment}</span>
+          </div>
+          <div>
+            <span style={{ color: "#6b7280" }}>Served by: </span>
+            <span style={{ fontWeight: 600, color: "#111827" }}>{sale.worker}</span>
           </div>
         </div>
       </div>
