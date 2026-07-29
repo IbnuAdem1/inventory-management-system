@@ -4,12 +4,12 @@ import { useCreateSaleMutation, useSalesQuery } from "@/hooks/useSales";
 import type { PaymentMethod, Sale } from "@/types";
 
 export interface NewSaleInput {
-  inventoryId: string;
-  item: string;
-  qty: number;
-  amount: number;
+  items: Array<{
+    inventoryId: string;
+    qty: number;
+    amount: number;
+  }>;
   payment: PaymentMethod;
-  worker: string;
   customer: string;
   bankAccountId?: string;
 }

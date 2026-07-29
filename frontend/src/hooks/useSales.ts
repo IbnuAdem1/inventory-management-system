@@ -12,6 +12,7 @@ interface ApiSaleItem {
   inventoryId: string;
   itemName: string;
   quantity: number;
+  unitPrice: string | number;
   amount: string | number;
 }
 
@@ -70,6 +71,12 @@ function mapSale(sale: ApiSale): Sale {
           bankName: sale.bankAccount.bankName,
         }
       : undefined,
+    items: sale.items.map((i) => ({
+      itemName: i.itemName,
+      quantity: i.quantity,
+      unitPrice: Number(i.unitPrice),
+      amount: Number(i.amount),
+    })),
   };
 }
 
@@ -98,12 +105,10 @@ export function useCreateSaleMutation() {
           customer: input.customer,
           paymentMethod: paymentToApi[input.payment],
           ...(input.bankAccountId ? { bankAccountId: input.bankAccountId } : {}),
-          items: [
-            {
-              inventoryId: input.inventoryId,
-              quantity: input.qty,
-            },
-          ],
+          items: input.items.map((item) => ({
+            inventoryId: item.inventoryId,
+            quantity: item.qty,
+          })),
         }),
       }),
     onSuccess: () => {

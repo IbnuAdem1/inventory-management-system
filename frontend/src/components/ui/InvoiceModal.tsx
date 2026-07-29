@@ -20,7 +20,12 @@ interface InvoiceModalProps {
 
 function InvoiceContent({ sale }: { sale: Sale }) {
   const invoiceNumber = sale.id.slice(0, 8).toUpperCase();
-  const unitPrice = sale.qty > 0 ? sale.amount / sale.qty : sale.amount;
+
+  // Use the items array if available (new multi-item sales)
+  // Fall back to single-item display for older sales that only have item + qty + amount
+  const lineItems = sale.items && sale.items.length > 0
+    ? sale.items
+    : [{ itemName: sale.item, quantity: sale.qty, unitPrice: sale.qty > 0 ? sale.amount / sale.qty : sale.amount, amount: sale.amount }];
 
   return (
     <div className="bg-white text-gray-900 p-8" style={{ fontFamily: "sans-serif" }}>
@@ -71,12 +76,14 @@ function InvoiceContent({ sale }: { sale: Sale }) {
             </tr>
           </thead>
           <tbody>
-            <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
-              <td style={{ padding: "0.75rem 0", color: "#111827", fontWeight: 500 }}>{sale.item}</td>
-              <td style={{ padding: "0.75rem 0", textAlign: "center", color: "#374151" }}>{sale.qty}</td>
-              <td style={{ padding: "0.75rem 0", textAlign: "right", fontFamily: "monospace", color: "#374151" }}>${unitPrice.toFixed(2)}</td>
-              <td style={{ padding: "0.75rem 0", textAlign: "right", fontFamily: "monospace", color: "#111827", fontWeight: 600 }}>${sale.amount.toFixed(2)}</td>
-            </tr>
+            {lineItems.map((line, i) => (
+              <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                <td style={{ padding: "0.75rem 0", color: "#111827", fontWeight: 500 }}>{line.itemName}</td>
+                <td style={{ padding: "0.75rem 0", textAlign: "center", color: "#374151" }}>{line.quantity}</td>
+                <td style={{ padding: "0.75rem 0", textAlign: "right", fontFamily: "monospace", color: "#374151" }}>${line.unitPrice.toFixed(2)}</td>
+                <td style={{ padding: "0.75rem 0", textAlign: "right", fontFamily: "monospace", color: "#111827", fontWeight: 600 }}>${line.amount.toFixed(2)}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

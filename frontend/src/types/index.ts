@@ -83,18 +83,24 @@ export interface BankAccount {
 export interface Sale {
   id: string;
   date: string;            // "YYYY-MM-DD" format
-  item: string;            // display name of the part sold
-  inventoryId?: string;    // links back to the inventory item (optional for now)
-  qty: number;
+  item: string;            // display name — "Item" or "Item + N more"
+  inventoryId?: string;    // first item's inventory id
+  qty: number;             // total quantity across all items
   amount: number;          // total charged to customer
   payment: PaymentMethod;
-  worker: string;          // name of worker who recorded the sale
-  customer: string;        // customer name or "Walk-in"
-  bankAccount?: {          // only present when paymentMethod is Transfer
+  worker: string;
+  customer: string;
+  bankAccount?: {
     id: string;
     accountName: string;
     bankName: string;
   };
+  items?: Array<{          // full line items — present when loaded from API
+    itemName: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+  }>;
 }
 
 // ─────────────────────────────────────────────
