@@ -4,8 +4,10 @@
 // Running total updates live. Submit sends all items to the API.
 
 import { useState, useCallback } from "react";
-import { Plus, X, Loader2 } from "lucide-react";
+import { Plus, X, Loader2, Store } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -23,11 +25,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSales } from "@/contexts/SalesContext";
+import { useBranch } from "@/contexts/BranchContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBankAccountsQuery } from "@/hooks/useBankAccounts";
 import { useInventoryQuery } from "@/hooks/useInventory";
+import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
+import { ReceiptModal } from "@/components/receipts/ReceiptModal";
 import { toast } from "sonner";
-import type { PaymentMethod } from "@/types";
+import type { PaymentMethod, Sale } from "@/types";
+
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -64,10 +70,16 @@ const NewSaleForm = () => {
   const [bankAccountId, setBankAccountId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Receipt Modal state
+  const [createdSaleForReceipt, setCreatedSaleForReceipt] = useState<Sale | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+
   const { addSale } = useSales();
+  const { activeBranch } = useBranch();
   const { user } = useAuth();
   const { data: bankAccounts = [] } = useBankAccountsQuery();
   const { data: inventory = [] } = useInventoryQuery();
+
 
   // IDs already selected in other rows — used to disable duplicates
   const selectedIds = rows.map((r) => r.inventoryId).filter(Boolean);
@@ -103,6 +115,67 @@ const NewSaleForm = () => {
       qty: 1,
     });
   };
+
+  // ── Barcode Hardware Scanner Auto-Handler ───────────────────────────────
+  useBarcodeScanner({
+    enabled: open,
+    onScan: (scannedCode) => {
+      const code = scannedCode.trim().toLowerCase();
+      const match = inventory.find(
+        (item) =>
+          (item.sku && item.sku.toLowerCase() === code) ||
+          item.id.toLowerCase() === code ||
+          item.name.toLowerCase() === code
+      );
+
+      if (!match) {
+        toast.error(`Barcode "${scannedCode}" not found in inventory.`);
+        return;
+      }
+
+      if (match.stock <= 0) {
+        toast.error(`"${match.name}" is out of stock!`);
+        return;
+      }
+
+      // Check if already in cart rows
+      const existingRow = rows.find((r) => r.inventoryId === match.id);
+      if (existingRow) {
+        if (existingRow.qty + 1 > match.stock) {
+          toast.warning(`Maximum stock reached for "${match.name}" (${match.stock} max)`);
+          return;
+        }
+        updateRow(existingRow.id, { qty: existingRow.qty + 1 });
+        toast.success(`⚡ Added +1 ${match.name} (Qty: ${existingRow.qty + 1})`);
+        return;
+      }
+
+      // Fill first empty row or add new row
+      const emptyRow = rows.find((r) => !r.inventoryId);
+      if (emptyRow) {
+        updateRow(emptyRow.id, {
+          inventoryId: match.id,
+          unitPrice: match.sellingPrice,
+          qty: 1,
+          maxQty: match.stock,
+        });
+      } else if (rows.length < 10) {
+        const newRowId = nextId;
+        setRows((prev) => [
+          ...prev,
+          {
+            id: newRowId,
+            inventoryId: match.id,
+            unitPrice: match.sellingPrice,
+            qty: 1,
+            maxQty: match.stock,
+          },
+        ]);
+        setNextId((n) => n + 1);
+      }
+      toast.success(`⚡ Scanned: ${match.name} ($${match.sellingPrice.toFixed(2)})`);
+    },
+  });
 
   // ── Derived values ───────────────────────────────────────────────────────
 
@@ -145,25 +218,57 @@ const NewSaleForm = () => {
     if (!canSubmit) return;
     setIsSubmitting(true);
     try {
+      const salePayloadItems = rows.map((r) => ({
+        inventoryId: r.inventoryId,
+        qty: r.qty,
+        amount: rowTotal(r),
+      }));
+
       await addSale({
-        items: rows.map((r) => ({
-          inventoryId: r.inventoryId,
-          qty: r.qty,
-          amount: rowTotal(r),
-        })),
+        items: salePayloadItems,
         payment,
         customer,
         bankAccountId: payment === "Transfer" ? bankAccountId : undefined,
       });
-      toast.success("Sale recorded");
+
+      // Prepare detailed receipt item list
+      const detailedItems = rows.map((r) => {
+        const itemObj = inventory.find((i) => i.id === r.inventoryId);
+        return {
+          itemName: itemObj?.name || "Spare Part",
+          quantity: r.qty,
+          unitPrice: r.unitPrice,
+          amount: rowTotal(r),
+        };
+      });
+
+      const receiptSaleData: Sale = {
+        id: `sale-${Date.now()}`,
+        date: new Date().toISOString(),
+        item: detailedItems[0]?.itemName || "Parts",
+        qty: detailedItems.reduce((s, i) => s + i.quantity, 0),
+        amount: grandTotal,
+        payment,
+        worker: user?.name || "Staff",
+        customer: customer.trim() || "Walk-in",
+        branchName: activeBranch?.name || "AutoPartsPro",
+        items: detailedItems,
+      };
+
+      toast.success("Sale recorded successfully!");
       resetForm();
       setOpen(false);
+
+      // Auto-open 1-Click Printable Receipt
+      setCreatedSaleForReceipt(receiptSaleData);
+      setReceiptOpen(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to record sale");
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -177,7 +282,15 @@ const NewSaleForm = () => {
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Record New Sale</DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle>Record New Sale</DialogTitle>
+              {activeBranch && (
+                <Badge variant="outline" className="gap-1 text-xs">
+                  <Store className="h-3 w-3 text-primary" />
+                  {activeBranch.name}
+                </Badge>
+              )}
+            </div>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -428,8 +541,16 @@ const NewSaleForm = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 1-Click Printable Receipt & Tax Invoice Modal */}
+      <ReceiptModal
+        sale={createdSaleForReceipt}
+        open={receiptOpen}
+        onOpenChange={setReceiptOpen}
+      />
     </>
   );
+
 };
 
 export default NewSaleForm;

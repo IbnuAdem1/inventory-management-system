@@ -32,14 +32,18 @@ function mapInventoryItem(item: ApiInventoryItem): InventoryItem {
   };
 }
 
-export function useInventoryQuery() {
+export function useInventoryQuery(branchId?: string) {
   const { isAuthenticated } = useAuth();
   
   return useQuery({
-    queryKey: ["inventory"],
+    queryKey: ["inventory", branchId],
     enabled: isAuthenticated,
     queryFn: async () => {
-      const items = await apiFetch<ApiInventoryItem[]>("/inventory");
+      const params = new URLSearchParams();
+      if (branchId && branchId !== "all") params.append("branchId", branchId);
+      const qs = params.toString() ? `?${params.toString()}` : "";
+
+      const items = await apiFetch<ApiInventoryItem[]>(`/inventory${qs}`);
       return items.map(mapInventoryItem);
     },
   });
@@ -49,7 +53,7 @@ export function useCreateInventoryMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: NewInventoryItem) =>
+    mutationFn: (input: NewInventoryItem & { branchId?: string }) =>
       apiFetch<ApiInventoryItem>("/inventory", {
         method: "POST",
         body: JSON.stringify(input),
@@ -60,6 +64,7 @@ export function useCreateInventoryMutation() {
     },
   });
 }
+
 
 export function useUpdateInventoryMutation() {
   const queryClient = useQueryClient();

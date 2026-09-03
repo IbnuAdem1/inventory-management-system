@@ -80,19 +80,24 @@ function mapSale(sale: ApiSale): Sale {
   };
 }
 
-export function useSalesQuery() {
+export function useSalesQuery(branchId?: string, startDate?: string, endDate?: string) {
   const { isAuthenticated } = useAuth();
   
   return useQuery({
-    queryKey: ["sales"],
+    queryKey: ["sales", branchId, startDate, endDate],
     enabled: isAuthenticated,
     queryFn: async () => {
-      const sales = await apiFetch<ApiSale[]>("/sales");
+      const params = new URLSearchParams();
+      if (branchId && branchId !== "all") params.append("branchId", branchId);
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
+      const qs = params.toString() ? `?${params.toString()}` : "";
+
+      const sales = await apiFetch<ApiSale[]>(`/sales${qs}`);
       return sales.map(mapSale);
     },
   });
 }
-
 
 export function useCreateSaleMutation() {
   const queryClient = useQueryClient();
@@ -104,6 +109,7 @@ export function useCreateSaleMutation() {
         body: JSON.stringify({
           customer: input.customer,
           paymentMethod: paymentToApi[input.payment],
+          ...(input.branchId ? { branchId: input.branchId } : {}),
           ...(input.bankAccountId ? { bankAccountId: input.bankAccountId } : {}),
           items: input.items.map((item) => ({
             inventoryId: item.inventoryId,
@@ -115,6 +121,8 @@ export function useCreateSaleMutation() {
       void queryClient.invalidateQueries({ queryKey: ["sales"] });
       void queryClient.invalidateQueries({ queryKey: ["inventory"] });
       void queryClient.invalidateQueries({ queryKey: ["activity"] });
+      void queryClient.invalidateQueries({ queryKey: ["reports"] });
     },
   });
 }
+

@@ -20,6 +20,16 @@ export const usersController = {
     }
   },
 
+  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = await usersService.update(req.params.id, req.body, req.user!);
+      res.status(200).json(user);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+
   async updateStatus(
     req: Request,
     res: Response,

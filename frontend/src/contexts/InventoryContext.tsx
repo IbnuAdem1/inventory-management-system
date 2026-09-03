@@ -5,10 +5,13 @@ import {
   useInventoryQuery,
   useUpdateInventoryMutation,
 } from "@/hooks/useInventory";
+import { useBranch } from "@/contexts/BranchContext";
 import { getMarginPercent } from "@/data/mockData";
 import type { InventoryItem } from "@/types";
 
-export type NewInventoryItem = Omit<InventoryItem, "id" | "createdAt" | "updatedAt">;
+export type NewInventoryItem = Omit<InventoryItem, "id" | "createdAt" | "updatedAt"> & {
+  branchId?: string;
+};
 
 interface InventoryContextType {
   inventory: InventoryItem[];
@@ -26,7 +29,8 @@ interface InventoryContextType {
 const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
 
 export function InventoryProvider({ children }: { children: ReactNode }) {
-  const inventoryQuery = useInventoryQuery();
+  const { activeBranchId } = useBranch();
+  const inventoryQuery = useInventoryQuery(activeBranchId);
   const createInventory = useCreateInventoryMutation();
   const updateInventory = useUpdateInventoryMutation();
   const deleteInventory = useDeleteInventoryMutation();
@@ -52,8 +56,12 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   );
 
   const addItem = async (item: NewInventoryItem) => {
-    await createInventory.mutateAsync(item);
+    await createInventory.mutateAsync({
+      ...item,
+      branchId: item.branchId || (activeBranchId !== "all" ? activeBranchId : undefined),
+    });
   };
+
 
   const updateItem = async (id: string, updates: Partial<NewInventoryItem>) => {
     await updateInventory.mutateAsync({ id, updates });

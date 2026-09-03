@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { getSalesByDate, getTodayString, getTotalRevenue } from "@/data/mockData";
 import { useCreateSaleMutation, useSalesQuery } from "@/hooks/useSales";
+import { useBranch } from "@/contexts/BranchContext";
 import type { PaymentMethod, Sale } from "@/types";
 
 export interface NewSaleInput {
@@ -12,6 +13,7 @@ export interface NewSaleInput {
   payment: PaymentMethod;
   customer: string;
   bankAccountId?: string;
+  branchId?: string;
 }
 
 interface SalesContextType {
@@ -27,7 +29,8 @@ interface SalesContextType {
 const SalesContext = createContext<SalesContextType | undefined>(undefined);
 
 export function SalesProvider({ children }: { children: ReactNode }) {
-  const salesQuery = useSalesQuery();
+  const { activeBranchId } = useBranch();
+  const salesQuery = useSalesQuery(activeBranchId);
   const createSale = useCreateSaleMutation();
   const sales = useMemo(
     () => salesQuery.data ?? [],
@@ -45,8 +48,12 @@ export function SalesProvider({ children }: { children: ReactNode }) {
   );
 
   const addSale = async (input: NewSaleInput) => {
-    await createSale.mutateAsync(input);
+    await createSale.mutateAsync({
+      ...input,
+      branchId: input.branchId || (activeBranchId !== "all" ? activeBranchId : undefined),
+    });
   };
+
 
   return (
     <SalesContext.Provider

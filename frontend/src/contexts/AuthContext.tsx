@@ -6,6 +6,8 @@ interface ApiUser {
   email: string;
   name: string;
   role: "OWNER" | "WORKER";
+  branchId?: string | null;
+  permissions?: string[];
 }
 
 interface LoginResponse {
@@ -13,18 +15,20 @@ interface LoginResponse {
   user: ApiUser;
 }
 
-interface User {
+export interface User {
   id: string;
   email: string;
   name: string;
   role: "owner" | "worker";
+  branchId?: string | null;
+  permissions?: string[];
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -37,8 +41,11 @@ function mapUser(user: ApiUser): User {
     email: user.email,
     name: user.name,
     role: user.role.toLowerCase() as User["role"],
+    branchId: user.branchId,
+    permissions: user.permissions || ["sales", "inventory_view", "credits", "customers"],
   };
 }
+
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -70,7 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void restoreSession();
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (
+    email: string,
+    password: string
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
       const result = await apiFetch<LoginResponse>("/auth/login", {
         method: "POST",
@@ -82,11 +92,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthToken(result.token);
       setUser(mappedUser);
       localStorage.setItem(USER_KEY, JSON.stringify(mappedUser));
-      return true;
-    } catch {
-      return false;
+      return { success: true };
+    } catch (err: any) {
+      const message =
+        err?.message || "Invalid email or password. Please try again.";
+      return { success: false, error: message };
     }
   };
+
 
   const logout = () => {
     setUser(null);

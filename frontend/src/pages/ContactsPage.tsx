@@ -45,15 +45,26 @@ const emptyBankAccount = null;
 
 const ContactsPage = () => {
   const { user } = useAuth();
-  const canEdit = user?.role === "owner";
+  const isOwner = user?.role === "owner";
+  const userPermissions = user?.permissions || ["sales", "inventory_view", "credits", "customers"];
+
+  const canViewSuppliers = isOwner || userPermissions.includes("suppliers");
+  const canViewBankAccounts = isOwner || userPermissions.includes("bank_accounts");
+  const canViewAllCustomers = isOwner || userPermissions.includes("customers_all");
+  const canEdit = isOwner || userPermissions.includes("customers") || userPermissions.includes("sales");
+
   const [searchParams, setSearchParams] = useSearchParams();
   const rawSection = searchParams.get("section");
   const section = useMemo<ContactSection>(() => {
-    if (rawSection === "customer" || rawSection === "supplier" || rawSection === "bank-accounts") {
-      return rawSection;
+    if (rawSection === "supplier" && canViewSuppliers) {
+      return "supplier";
+    }
+    if (rawSection === "bank-accounts" && canViewBankAccounts) {
+      return "bank-accounts";
     }
     return "customer";
-  }, [rawSection]);
+  }, [rawSection, canViewSuppliers, canViewBankAccounts]);
+
   const [search, setSearch] = useState("");
   const [contactFormOpen, setContactFormOpen] = useState(false);
   const [bankFormOpen, setBankFormOpen] = useState(false);
@@ -78,6 +89,8 @@ const ContactsPage = () => {
 
   const items: Contact[] | BankAccount[] =
     section === "bank-accounts" ? bankAccountsQuery.data ?? [] : contactsQuery.data ?? [];
+
+
 
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -172,35 +185,37 @@ const ContactsPage = () => {
 
           <div className="grid gap-3 sm:grid-cols-3">
             {[
-              { key: "customer", label: "Customers", icon: UserRound },
-              { key: "supplier", label: "Suppliers", icon: Building2 },
-              { key: "bank-accounts", label: "Bank Accounts", icon: Landmark },
-            ].map(({ key, label, icon: Icon }) => {
-              const active = section === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setSearchParams({ section: key }, { replace: true })}
-                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
-                    active
-                      ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
-                      : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                  }`}
-                >
-                  <span
-                    className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-                      active ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+              { key: "customer" as const, label: "Customers", icon: UserRound, visible: true },
+              { key: "supplier" as const, label: "Suppliers", icon: Building2, visible: canViewSuppliers },
+              { key: "bank-accounts" as const, label: "Bank Accounts", icon: Landmark, visible: canViewBankAccounts },
+            ]
+              .filter((tab) => tab.visible)
+              .map(({ key, label, icon: Icon }) => {
+                const active = section === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setSearchParams({ section: key }, { replace: true })}
+                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                      active
+                        ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
                     }`}
                   >
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span>
-                    <span className="block text-sm font-semibold">{label}</span>
-                    <span className="block text-xs opacity-80">{active ? "Active view" : "Open section"}</span>
-                  </span>
-                </button>
-              );
-            })}
+                    <span
+                      className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+                        active ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-semibold">{label}</span>
+                      <span className="block text-xs opacity-80">{active ? "Active view" : "Open section"}</span>
+                    </span>
+                  </button>
+                );
+              })}
           </div>
         </div>
 

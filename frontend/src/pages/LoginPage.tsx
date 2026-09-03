@@ -21,16 +21,17 @@ const LoginPage = () => {
     setError("");
     setIsSubmitting(true);
 
-    const success = await login(email, password);
+    const res = await login(email.trim().toLowerCase(), password);
 
-    if (success) {
+    if (res.success) {
       navigate("/dashboard");
     } else {
-      setError("Invalid email or password. Please try again.");
+      setError(res.error || "Invalid email or password. Please try again.");
     }
 
     setIsSubmitting(false);
   };
+
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">

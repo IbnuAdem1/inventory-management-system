@@ -12,6 +12,15 @@ const userSelect = {
   email: true,
   name: true,
   role: true,
+  branchId: true,
+  branch: {
+    select: {
+      id: true,
+      name: true,
+      code: true,
+    },
+  },
+  permissions: true,
   isActive: true,
   createdAt: true,
   updatedAt: true,
@@ -45,7 +54,7 @@ export const usersService = {
     return users;
   },
 
-  /** Create a new WORKER account (role is always WORKER). */
+  /** Create a new WORKER account with branch & permissions. */
   async create(input: UserCreateInput, actor: RequestUser) {
     const email = input.email.toLowerCase().trim();
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -62,6 +71,8 @@ export const usersService = {
         name: input.name.trim(),
         passwordHash,
         role: "WORKER",
+        branchId: input.branchId || null,
+        permissions: input.permissions || ["sales", "inventory"],
       },
       select: userSelect,
     });
@@ -69,6 +80,38 @@ export const usersService = {
     await logUserAction(
       actor,
       "Added worker",
+      `${user.name} (${user.email})`
+    );
+
+    return user;
+  },
+
+  /** Update worker details, branch assignment, or permissions. */
+  async update(id: string, input: any, actor: RequestUser) {
+    const target = await prisma.user.findUnique({ where: { id } });
+
+    if (!target) {
+      throw new AppError("User not found", 404);
+    }
+
+    if (target.role === "OWNER") {
+      throw new AppError("Cannot modify OWNER accounts", 403);
+    }
+
+    const data: any = {};
+    if (input.name !== undefined) data.name = input.name.trim();
+    if (input.branchId !== undefined) data.branchId = input.branchId || null;
+    if (input.permissions !== undefined) data.permissions = input.permissions;
+
+    const user = await prisma.user.update({
+      where: { id },
+      data,
+      select: userSelect,
+    });
+
+    await logUserAction(
+      actor,
+      "Updated worker settings",
       `${user.name} (${user.email})`
     );
 

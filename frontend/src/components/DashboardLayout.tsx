@@ -1,3 +1,4 @@
+// src/components/DashboardLayout.tsx
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -32,6 +33,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ChangePasswordModal from "@/components/ui/ChangePasswordModal";
+import BranchSelector from "@/components/BranchSelector";
+import AiInvoiceParserDialog from "@/components/ai/AiInvoiceParserDialog";
+
+
 
 type NavChildItem = {
   icon: LucideIcon;
@@ -84,8 +89,40 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     navigate("/");
   };
 
-  // Derive avatar initial from user name
+
   const avatarInitial = user?.name?.charAt(0).toUpperCase() ?? "O";
+
+  const userPermissions = user?.permissions || ["sales", "inventory_view", "credits", "customers"];
+  const isOwner = user?.role === "owner";
+
+  const visibleNavItems = navItems.filter((item) => {
+    if (isOwner) return true;
+    if (item.path === "/dashboard") return true;
+    if (item.path === "/settings") return false; // Settings is owner-only
+    if (item.path === "/activity") return isOwner; // Activity is owner-only
+    if (item.path === "/inventory") {
+      return (
+        userPermissions.includes("inventory_view") ||
+        userPermissions.includes("inventory_manage") ||
+        userPermissions.includes("inventory")
+      );
+    }
+    if (item.path === "/sales") return userPermissions.includes("sales");
+    if (item.path === "/credits") {
+      return userPermissions.includes("credits") || userPermissions.includes("credits_all");
+    }
+    if (item.path === "/expenses") return userPermissions.includes("expenses");
+    if (item.path === "/reports") return userPermissions.includes("reports");
+    if (item.path === "/contacts") {
+      return (
+        userPermissions.includes("customers") ||
+        userPermissions.includes("customers_all") ||
+        userPermissions.includes("suppliers") ||
+        userPermissions.includes("bank_accounts")
+      );
+    }
+    return true;
+  });
 
   useEffect(() => {
     if (location.pathname === "/contacts") {
@@ -93,8 +130,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     }
   }, [location.pathname, location.search]);
 
+
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -115,9 +153,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
             <Wrench className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="text-lg font-bold text-sidebar-accent-foreground">
-            AutoParts<span className="text-primary">Pro</span>
-          </span>
+          <div>
+            <span className="text-sm font-bold tracking-tight text-sidebar-foreground">
+              AutoParts Pro
+            </span>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              {user?.role === "owner" ? "Store Owner" : "Counter Staff"}
+            </p>
+          </div>
           <button
             onClick={() => setSidebarOpen(false)}
             className="ml-auto lg:hidden text-sidebar-foreground"
@@ -127,17 +170,32 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </button>
         </div>
 
-        {/* Nav — Settings is owner-only */}
-        <nav className="flex-1 space-y-1 p-3">
-          {navItems
-            .filter((item) => (item.path !== "/settings" && item.path !== "/expenses") || user?.role === "owner")
-            .map((item) => {
+        {/* Nav — Dynamic permissions filtering */}
+        <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
+          {visibleNavItems.map((item) => {
             const isContacts = item.path === "/contacts";
             const isActive = location.pathname === item.path;
             const activeSection = new URLSearchParams(location.search).get("section") ?? "customer";
             const contactsActive = isContacts && location.pathname === "/contacts";
 
             if (isContacts) {
+              const visibleChildren = (item.children || []).filter((child) => {
+                if (isOwner) return true;
+                const childSec = new URLSearchParams(new URL(child.path, "http://localhost").search).get("section");
+                if (childSec === "customer") {
+                  return userPermissions.includes("customers") || userPermissions.includes("customers_all") || userPermissions.includes("sales");
+                }
+                if (childSec === "supplier") {
+                  return userPermissions.includes("suppliers");
+                }
+                if (childSec === "bank-accounts") {
+                  return userPermissions.includes("bank_accounts");
+                }
+                return true;
+              });
+
+              if (visibleChildren.length === 0) return null;
+
               return (
                 <Collapsible
                   key={item.path}
@@ -172,7 +230,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                     )}
                   >
                     <div className="mt-1 space-y-1 border-l border-sidebar-border pl-4 pb-1">
-                      {item.children?.map((child) => {
+                      {visibleChildren.map((child) => {
                         const childSection = new URLSearchParams(new URL(child.path, "http://localhost").search).get("section");
                         const childActive = location.pathname === "/contacts" && activeSection === childSection;
                         return (
@@ -216,12 +274,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             );
           })}
         </nav>
-
         {/* Sign Out */}
         <div className="border-t border-sidebar-border p-3">
           <button
             onClick={handleSignOut}
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
           >
             <LogOut className="h-4 w-4" />
             Sign Out
@@ -232,7 +289,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="flex h-16 items-center gap-4 border-b border-border bg-card px-4 lg:px-6">
+        <header className="flex h-16 items-center gap-3 border-b border-border bg-card px-4 lg:px-6">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden text-foreground"
@@ -240,12 +297,26 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           >
             <Menu className="h-5 w-5" />
           </button>
+
+          {/* Branch Switcher */}
+          <BranchSelector />
+
           <div className="flex-1" />
+
+          {/* AI Invoice Scanner Topbar Quick Button (Permitted staff only) */}
+          {(isOwner || userPermissions.includes("ai_scanner")) && (
+            <div className="hidden sm:block">
+              <AiInvoiceParserDialog />
+            </div>
+          )}
+
+
+          {/* User profile dropdown */}
           <div className="flex items-center gap-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 rounded-md px-2 py-1 hover:bg-muted/50 transition-colors focus:outline-none">
-                  <div className="text-right">
+                  <div className="text-right hidden sm:block">
                     <p className="text-sm font-medium text-foreground">
                       {user?.name ?? "Owner"}
                     </p>
@@ -283,7 +354,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
       </div>
 
-      {/* Change Password modal — triggered from top-right dropdown */}
+      {/* Global Modals */}
       <ChangePasswordModal
         open={changePasswordOpen}
         onOpenChange={setChangePasswordOpen}
@@ -293,3 +364,4 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 };
 
 export default DashboardLayout;
+

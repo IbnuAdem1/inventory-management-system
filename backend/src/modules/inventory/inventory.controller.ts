@@ -7,7 +7,20 @@ export const inventoryController = {
     try {
       const search = req.query.search as string | undefined;
       const lowStock = req.query.lowStock === "true";
-      const items = await inventoryService.getAll(req.user!, search, lowStock);
+      const branchId = req.query.branchId as string | undefined;
+      const category = req.query.category as string | undefined;
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+
+      const items = await inventoryService.getAll(
+        req.user!,
+        search,
+        lowStock,
+        branchId,
+        category,
+        startDate,
+        endDate
+      );
       res.status(200).json(items);
     } catch (error) {
       next(error);

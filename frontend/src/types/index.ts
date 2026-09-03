@@ -1,60 +1,69 @@
 // src/types/index.ts
-//
-// This is the SINGLE SOURCE OF TRUTH for all data shapes (TypeScript interfaces)
-// used throughout the entire app.
-//
-// Think of these as blueprints: they describe WHAT an object looks like,
-// not where it comes from or how it's stored.
-//
-// When you connect a real database (Phase 4), these types will match
-// your database columns. If you add a field to the database, add it here first.
+// Single source of truth for all data shapes in the AutoPartsPro frontend.
 
-// ─────────────────────────────────────────────
-// PAYMENT METHODS
-// "type" here creates a union — the value must be exactly one of these strings.
-// This means: payment: "Cash" is valid, payment: "Cheque" will be a TypeScript error.
-// ─────────────────────────────────────────────
 export type PaymentMethod = "Cash" | "Transfer" | "Credit";
 
-// ─────────────────────────────────────────────
-// ACTIVITY LOG TYPES
-// Every action recorded in the Activity page has one of these types.
-// Used to determine which icon and color to show.
-// ─────────────────────────────────────────────
-export type ActivityType = "sale" | "stock" | "auth" | "price" | "credit" | "user";
+export type ActivityType =
+  | "sale"
+  | "stock"
+  | "auth"
+  | "price"
+  | "credit"
+  | "user"
+  | "transfer"
+  | "branch"
+  | "expense";
 
-// ─────────────────────────────────────────────
-// WORKER / USER
-// A person who works at the shop and has access to the system.
-// ─────────────────────────────────────────────
 export interface Worker {
   id: string;
   name: string;
-  role: "owner" | "worker"; // owner can see cost prices and reports; worker cannot
+  role: "owner" | "worker";
   email: string;
+  branchId?: string | null;
 }
 
-// ─────────────────────────────────────────────
-// INVENTORY ITEM
-// A spare part in stock. This is the core data model of the app.
-// ─────────────────────────────────────────────
+export interface Branch {
+  id: string;
+  name: string;
+  code: string;
+  address?: string | null;
+  phone?: string | null;
+  isDefault?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface InventoryBranchStock {
+  id: string;
+  inventoryId: string;
+  branchId: string;
+  stock: number;
+  minStock: number;
+  branch?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+}
+
 export interface InventoryItem {
   id: string;
   name: string;
   brand: string;
-  compatibility: string; // e.g. "Toyota Camry 2018-2023"
-  costPrice: number;     // what you paid the supplier (hidden from workers)
-  sellingPrice: number;  // what you charge the customer
-  stock: number;         // current units in stock
-  minStock: number;      // alert threshold — show warning when stock <= minStock
-  createdAt?: string;    // ISO date string, e.g. "2026-06-06T10:30:00Z"
+  compatibility: string;
+  category?: string;
+  sku?: string | null;
+  costPrice: number;
+  sellingPrice: number;
+  stock: number;
+  minStock: number;
+  registeredDate?: string;
+  createdAt?: string;
   updatedAt?: string;
+  branchStock?: InventoryBranchStock[];
+  branchSpecificStock?: number;
 }
 
-// ─────────────────────────────────────────────
-// SALE
-// One sales transaction recorded at the counter.
-// ─────────────────────────────────────────────
 export type ContactType = "customer" | "supplier";
 
 export interface Contact {
@@ -82,11 +91,14 @@ export interface BankAccount {
 
 export interface Sale {
   id: string;
-  date: string;            // "YYYY-MM-DD" format
-  item: string;            // display name — "Item" or "Item + N more"
-  inventoryId?: string;    // first item's inventory id
-  qty: number;             // total quantity across all items
-  amount: number;          // total charged to customer
+  date: string;
+  item: string;
+  inventoryId?: string;
+  branchId?: string | null;
+  branchName?: string;
+  qty: number;
+  amount: number;
+  discount?: number;
   payment: PaymentMethod;
   worker: string;
   customer: string;
@@ -95,7 +107,7 @@ export interface Sale {
     accountName: string;
     bankName: string;
   };
-  items?: Array<{          // full line items — present when loaded from API
+  items?: Array<{
     itemName: string;
     quantity: number;
     unitPrice: number;
@@ -103,53 +115,140 @@ export interface Sale {
   }>;
 }
 
-// ─────────────────────────────────────────────
-// ACTIVITY LOG
-// A record of something that happened: a sale, a stock update, a login, etc.
-// These are NEVER edited — they are append-only for audit purposes.
-// ─────────────────────────────────────────────
 export interface ActivityLog {
   id?: string;
-  time: string;       // display time, e.g. "10:32 AM"
+  time: string;
+  dateFormatted?: string;
+  createdAt?: string;
   worker: string;
-  action: string;     // human-readable action, e.g. "Recorded sale"
-  detail: string;     // details, e.g. "Brake Pads - Toyota Camry ($85.00)"
+  action: string;
+  detail: string;
   type: ActivityType;
 }
 
-// ─────────────────────────────────────────────
-// MONTHLY REPORT
-// Financial summary for one month — used in the Reports page.
-// ─────────────────────────────────────────────
+
 export interface MonthlyReport {
-  month: string;    // e.g. "Jan", "Feb"
+  month: string;
   revenue: number;
-  cost: number;     // cost of goods sold
-  expenses: number; // operating expenses (rent, salaries, etc.)
-  profit: number;   // revenue - cost - expenses
+  cost: number;
+  expenses: number;
+  profit: number;
   totalSales?: number;
 }
 
-// ─────────────────────────────────────────────
-// EXPENSE
-// A single line item in the operating expenses breakdown.
-// ─────────────────────────────────────────────
 export interface Expense {
   id: string;
   category: string;
   amount: number;
   month: number;
   year: number;
+  branchId?: string | null;
+  createdAt?: string;
+}
+
+export interface Credit {
+  id: string;
+  saleId: string;
+  customerName: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  status: "UNPAID" | "PARTIAL" | "PAID";
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  saleDate: string;
+  daysOutstanding: number;
+}
+
+export interface CreditPayment {
+  id: string;
+  creditId: string;
+  amount: number;
+  paymentMethod: "Cash" | "Transfer";
+  note?: string | null;
+  recordedBy: string;
+  bankAccount?: {
+    id: string;
+    bankName: string;
+    accountHolderName: string;
+  } | null;
   createdAt: string;
 }
 
+export interface StockTransfer {
+  id: string;
+  inventoryId: string;
+  fromBranchId: string;
+  toBranchId: string;
+  quantity: number;
+  workerId: string;
+  notes?: string | null;
+  createdAt: string;
+  inventory?: { name: string; brand: string; compatibility?: string };
+  fromBranch?: { name: string; code: string };
+  toBranch?: { name: string; code: string };
+  worker?: { name: string };
+}
+
 // ─────────────────────────────────────────────
-// STAT CARD DATA
-// Used to populate the KPI cards on the Dashboard and Reports pages.
+// AI TYPES
 // ─────────────────────────────────────────────
-export interface StatData {
-  title: string;
-  value: string;
-  change?: string;
-  changeType?: "positive" | "negative" | "neutral";
+export interface AiCopilotResponse {
+  reply: string;
+  suggestedActions: Array<{
+    label: string;
+    action: string;
+    payload?: unknown;
+  }>;
+  timestamp: string;
+}
+
+export interface AiRestockForecastItem {
+  id: string;
+  name: string;
+  brand: string;
+  compatibility: string;
+  currentStock: number;
+  minStock: number;
+  dailyBurnRate: number;
+  estimatedDaysRemaining: number;
+  status: "CRITICAL" | "LOW" | "HEALTHY" | "OVERSTOCKED";
+  suggestedReorder: number;
+  estimatedCost: number;
+}
+
+export interface AiRestockForecastResponse {
+  horizonDays: number;
+  totalItemsAnalyzed: number;
+  criticalCount: number;
+  lowCount: number;
+  items: AiRestockForecastItem[];
+}
+
+export interface AiParsedInvoiceItem {
+  name: string;
+  brand: string;
+  compatibility: string;
+  quantity: number;
+  costPrice: number;
+  suggestedSellingPrice: number;
+  category: string;
+}
+
+export interface AiParsedInvoiceResponse {
+  supplier: string;
+  itemsFound: number;
+  items: AiParsedInvoiceItem[];
+}
+
+export interface AiDailyInsightsResponse {
+  date: string;
+  greeting: string;
+  todayRevenue: number;
+  todaySalesCount: number;
+  lowStockCount: number;
+  totalDebts: number;
+  highlights: string[];
+  tipOfTheDay: string;
 }

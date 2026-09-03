@@ -7,6 +7,13 @@ export interface WorkerUser {
   name: string;
   email: string;
   role: "OWNER" | "WORKER";
+  branchId?: string | null;
+  branch?: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
+  permissions?: string[];
   isActive: boolean;
   createdAt: string;
 }
@@ -15,6 +22,14 @@ export interface UserCreateInput {
   name: string;
   email: string;
   password: string;
+  branchId?: string | null;
+  permissions?: string[];
+}
+
+export interface UserUpdateInput {
+  name?: string;
+  branchId?: string | null;
+  permissions?: string[];
 }
 
 export interface UserStatusInput {
@@ -50,6 +65,23 @@ export function useCreateUserMutation() {
     },
   });
 }
+
+export function useUpdateUserMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UserUpdateInput }) =>
+      apiFetch<WorkerUser>(`/users/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["users"] });
+      void queryClient.invalidateQueries({ queryKey: ["auth"] });
+    },
+  });
+}
+
 
 export function useUpdateUserStatusMutation() {
   const queryClient = useQueryClient();

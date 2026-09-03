@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CreditCard, Plus, X } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,8 @@ import {
   type Credit,
 } from "@/hooks/useCredits";
 import { useBankAccountsQuery } from "@/hooks/useBankAccounts";
+import { useAuth } from "@/contexts/AuthContext";
+import ExportButton from "@/components/ui/ExportButton";
 
 // ── Status badge ─────────────────────────────────────────────────────────────
 
@@ -58,39 +60,44 @@ function PaymentModal({ credit, onClose }: PaymentModalProps) {
   const [note, setNote] = useState("");
   const [bankError, setBankError] = useState(false);
 
-  const mutation = useAddCreditPaymentMutation(credit.id);
+  const mutation = useAddCreditPaymentMutation();
   const { data: bankAccounts = [] } = useBankAccountsQuery();
   const isTransfer = method === "TRANSFER";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const parsed = parseFloat(amount);
-    if (isNaN(parsed) || parsed <= 0) {
-      toast.error("Enter a valid amount greater than 0.");
-      return;
-    }
-    if (parsed > credit.remainingAmount) {
-      toast.error(`Amount cannot exceed the remaining balance of $${credit.remainingAmount.toFixed(2)}.`);
-      return;
-    }
     if (isTransfer && !bankAccountId) {
       setBankError(true);
+      return;
+    }
+    setBankError(false);
+
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      toast.error("Please enter a valid payment amount");
+      return;
+    }
+    if (parsedAmount > credit.remainingAmount) {
+      toast.error(
+        `Amount cannot exceed remaining balance of $${credit.remainingAmount.toFixed(2)}`
+      );
       return;
     }
 
     try {
       await mutation.mutateAsync({
-        amount: parsed,
+        creditId: credit.id,
+        amount: parsedAmount,
         paymentMethod: method,
         bankAccountId: isTransfer ? bankAccountId : undefined,
         note: note.trim() || undefined,
       });
-      toast.success(`Payment of $${parsed.toFixed(2)} recorded for ${credit.customerName}.`);
+      toast.success(
+        `Payment of $${parsedAmount.toFixed(2)} recorded for ${credit.customerName}`
+      );
       onClose();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to record payment.";
-      toast.error(message);
+    } catch {
+      toast.error("Failed to record payment. Please try again.");
     }
   };
 
@@ -137,39 +144,43 @@ function PaymentModal({ credit, onClose }: PaymentModalProps) {
               onChange={(e) => setAmount(e.target.value)}
               required
               aria-describedby="amount-hint"
+              autoFocus
             />
-            <p id="amount-hint" className="text-xs text-muted-foreground">
+            <p id="amount-hint" className="text-[11px] text-muted-foreground">
               Max: ${credit.remainingAmount.toFixed(2)}
             </p>
           </div>
 
-          {/* Payment method */}
+          {/* Payment Method */}
           <div className="space-y-1.5">
-            <Label htmlFor="payment-method">
-              Payment Method <span className="text-destructive">*</span>
-            </Label>
-            <Select
-              value={method}
-              onValueChange={(v) => {
-                setMethod(v as "CASH" | "TRANSFER");
-                // Clear bank selection when switching away from Transfer
-                if (v !== "TRANSFER") {
+            <Label>Payment Method</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={method === "CASH" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => {
+                  setMethod("CASH");
                   setBankAccountId("");
                   setBankError(false);
-                }
-              }}
-            >
-              <SelectTrigger id="payment-method">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="CASH">Cash</SelectItem>
-                <SelectItem value="TRANSFER">Transfer</SelectItem>
-              </SelectContent>
-            </Select>
+                }}
+              >
+                Cash
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={method === "TRANSFER" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setMethod("TRANSFER")}
+              >
+                Bank Transfer
+              </Button>
+            </div>
           </div>
 
-          {/* Bank account — only when Transfer */}
+          {/* Bank account picker (only if TRANSFER) */}
           {isTransfer && (
             <div className="space-y-1.5">
               <Label htmlFor="bank-account">
@@ -177,21 +188,18 @@ function PaymentModal({ credit, onClose }: PaymentModalProps) {
               </Label>
               <Select
                 value={bankAccountId}
-                onValueChange={(v) => {
-                  setBankAccountId(v);
+                onValueChange={(val) => {
+                  setBankAccountId(val);
                   setBankError(false);
                 }}
               >
-                <SelectTrigger
-                  id="bank-account"
-                  className={bankError ? "border-destructive" : ""}
-                >
-                  <SelectValue placeholder="Select account..." />
+                <SelectTrigger id="bank-account">
+                  <SelectValue placeholder="Select bank account…" />
                 </SelectTrigger>
                 <SelectContent>
                   {bankAccounts.length === 0 ? (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">
-                      No active bank accounts
+                    <div className="p-2 text-xs text-muted-foreground text-center">
+                      No active bank accounts found
                     </div>
                   ) : (
                     bankAccounts.map((account) => (
@@ -253,20 +261,36 @@ const filterTabs: { label: string; value: Filter }[] = [
 ];
 
 const CreditsPage = () => {
+  const { user } = useAuth();
+  const isOwner = user?.role === "owner";
+  const userPermissions = user?.permissions || ["sales", "inventory_view", "credits", "customers"];
+  const canViewAllCredits = isOwner || userPermissions.includes("credits_all");
+
   const { data: credits = [], isLoading, error } = useCreditsQuery();
   const [filter, setFilter] = useState<Filter>("ALL");
   const [search, setSearch] = useState("");
   const [selectedCredit, setSelectedCredit] = useState<Credit | null>(null);
 
+  // Scoped credits: worker only sees credits from sales created by themselves unless granted credits_all
+  const accessibleCredits = useMemo(() => {
+    if (canViewAllCredits) return credits;
+    return credits.filter((c: any) => {
+      if (c.userId && c.userId === user?.id) return true;
+      if (c.sale && (c.sale.userId === user?.id || c.sale.user?.id === user?.id)) return true;
+      // If sale has branchId and worker matches branch, allow if credit has no explicit other user
+      return false;
+    });
+  }, [credits, canViewAllCredits, user?.id]);
+
   // Summary stats
-  const totalOutstanding = credits
+  const totalOutstanding = accessibleCredits
     .filter((c) => c.status !== "PAID")
     .reduce((sum, c) => sum + c.remainingAmount, 0);
-  const unpaidCount  = credits.filter((c) => c.status === "UNPAID").length;
-  const partialCount = credits.filter((c) => c.status === "PARTIAL").length;
-  const paidCount    = credits.filter((c) => c.status === "PAID").length;
+  const unpaidCount  = accessibleCredits.filter((c) => c.status === "UNPAID").length;
+  const partialCount = accessibleCredits.filter((c) => c.status === "PARTIAL").length;
+  const paidCount    = accessibleCredits.filter((c) => c.status === "PAID").length;
 
-  const filtered = credits.filter((c) => {
+  const filtered = accessibleCredits.filter((c) => {
     const matchesFilter = filter === "ALL" || c.status === filter;
     const q = search.toLowerCase();
     const matchesSearch =
@@ -276,15 +300,27 @@ const CreditsPage = () => {
     return matchesFilter && matchesSearch;
   });
 
+  const exportCreditsData = filtered.map((c) => ({
+    "Customer Name": c.customerName,
+    "Total Debt ($)": c.totalAmount,
+    "Paid Amount ($)": c.paidAmount,
+    "Remaining Balance ($)": c.remainingAmount,
+    Status: c.status,
+    "Date Recorded": c.saleDate,
+  }));
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Credits</h1>
-          <p className="text-sm text-muted-foreground">
-            Track outstanding credit sales and record payments
-          </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Customer Debts & Credits</h1>
+            <p className="text-sm text-muted-foreground">
+              Track outstanding customer credit balances and record partial/full payments
+            </p>
+          </div>
+          <ExportButton filename="customer-debts-credits" data={exportCreditsData} />
         </div>
 
         {/* Summary bar */}

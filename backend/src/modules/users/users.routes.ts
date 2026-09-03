@@ -6,6 +6,7 @@ import {
   UserCreateSchema,
   UserPasswordResetSchema,
   UserStatusSchema,
+  UserUpdateSchema,
 } from "./users.schema";
 
 const router = Router();
@@ -15,11 +16,13 @@ router.use(authMiddleware, requireOwner);
 
 router.get("/", usersController.getAll);
 router.post("/", validate(UserCreateSchema), usersController.create);
+router.patch("/:id", validate(UserUpdateSchema), usersController.update);
 router.patch(
   "/:id/status",
   validate(UserStatusSchema),
   usersController.updateStatus
 );
+
 router.patch(
   "/:id/password",
   validate(UserPasswordResetSchema),

@@ -1,6 +1,6 @@
 // prisma/schema.prisma
 // Database schema for AutoPartsPro
-// Managed by Prisma ORM — do not edit generated migration files
+// Managed by Prisma ORM
 
 generator client {
   provider = "prisma-client-js"
@@ -34,6 +34,9 @@ enum ActivityType {
   PRICE
   CREDIT
   USER
+  TRANSFER
+  BRANCH
+  EXPENSE
 }
 
 enum ContactType {
@@ -48,6 +51,31 @@ enum CreditStatus {
 }
 
 // ─────────────────────────────────────────────
+// BRANCHES
+// Multi-store support (e.g. Main Store & Branch 2)
+// ─────────────────────────────────────────────
+
+model Branch {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  address     String?
+  phone       String?
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  users           User[]
+  sales           Sale[]
+  branchStock     InventoryBranchStock[]
+  transfersFrom   StockTransfer[]        @relation("FromBranch")
+  transfersTo     StockTransfer[]        @relation("ToBranch")
+
+  @@map("branches")
+}
+
+// ─────────────────────────────────────────────
 // USERS
 // Stores all staff accounts (owner + workers)
 // ─────────────────────────────────────────────
@@ -58,16 +86,39 @@ model User {
   passwordHash String   @map("password_hash")
   name         String
   role         Role     @default(WORKER)
+  branchId     String?  @map("branch_id")
+  permissions  String[] @default(["sales", "inventory"])
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  sales        Sale[]
-  activityLogs ActivityLog[]
-  creditPayments CreditPayment[]
+  branch                  Branch?                  @relation(fields: [branchId], references: [id])
+  sales                   Sale[]
+  activityLogs            ActivityLog[]
+  creditPayments          CreditPayment[]
+  stockTransfers          StockTransfer[]
+  notificationPreferences NotificationPreferences?
 
   @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATION PREFERENCES
+// ─────────────────────────────────────────────
+
+model NotificationPreferences {
+  id                 String   @id @default(uuid())
+  userId             String   @unique @map("user_id")
+  lowStockAlert      Boolean  @default(true) @map("low_stock_alert")
+  dailySummary       Boolean  @default(true) @map("daily_summary")
+  creditOverdueAlert Boolean  @default(true) @map("credit_overdue_alert")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
 }
 
 // ─────────────────────────────────────────────
@@ -76,59 +127,101 @@ model User {
 // ─────────────────────────────────────────────
 
 model Inventory {
-  id            String   @id @default(uuid())
-  name          String
-  brand         String
-  compatibility String
-  costPrice     Decimal  @map("cost_price") @db.Decimal(10, 2)
-  sellingPrice  Decimal  @map("selling_price") @db.Decimal(10, 2)
-  stock         Int      @default(0)
-  minStock      Int      @default(5) @map("min_stock")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(uuid())
+  name           String
+  brand          String
+  compatibility  String
+  category       String   @default("General")
+  sku            String?
+  costPrice      Decimal  @map("cost_price") @db.Decimal(10, 2)
+  sellingPrice   Decimal  @map("selling_price") @db.Decimal(10, 2)
+  stock          Int      @default(0)
+  minStock       Int      @default(5) @map("min_stock")
+  registeredDate DateTime @default(now()) @map("registered_date")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   // Relations
-  sales         SaleItem[]
+  sales          SaleItem[]
+  branchStock    InventoryBranchStock[]
+  stockTransfers StockTransfer[]
 
   @@map("inventory")
 }
 
 // ─────────────────────────────────────────────
+// INVENTORY BRANCH STOCK
+// Tracks item stock individually per branch
+// ─────────────────────────────────────────────
+
+model InventoryBranchStock {
+  id          String   @id @default(uuid())
+  inventoryId String   @map("inventory_id")
+  branchId    String   @map("branch_id")
+  stock       Int      @default(0)
+  minStock    Int      @default(5) @map("min_stock")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  inventory Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  branch    Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([inventoryId, branchId])
+  @@map("inventory_branch_stock")
+}
+
+// ─────────────────────────────────────────────
+// STOCK TRANSFERS
+// Logs movements of parts between Branch 1 & Branch 2
+// ─────────────────────────────────────────────
+
+model StockTransfer {
+  id           String   @id @default(uuid())
+  inventoryId  String   @map("inventory_id")
+  fromBranchId String   @map("from_branch_id")
+  toBranchId   String   @map("to_branch_id")
+  quantity     Int
+  workerId     String   @map("worker_id")
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  inventory  Inventory @relation(fields: [inventoryId], references: [id])
+  fromBranch Branch    @relation("FromBranch", fields: [fromBranchId], references: [id])
+  toBranch   Branch    @relation("ToBranch", fields: [toBranchId], references: [id])
+  worker     User      @relation(fields: [workerId], references: [id])
+
+  @@map("stock_transfers")
+}
+
+// ─────────────────────────────────────────────
 // SALES
 // One row = one transaction (one customer visit)
-// A sale can contain multiple products via SaleItem
-// Immutable — never edited or deleted (audit trail)
 // ─────────────────────────────────────────────
 
 model Sale {
   id            String        @id @default(uuid())
   workerId      String        @map("worker_id")
+  branchId      String?       @map("branch_id")
   customer      String        @default("Walk-in")
   paymentMethod PaymentMethod @map("payment_method")
   totalAmount   Decimal       @map("total_amount") @db.Decimal(10, 2)
+  discount      Decimal       @default(0) @db.Decimal(10, 2)
   bankAccountId String?       @map("bank_account_id")
   createdAt     DateTime      @default(now()) @map("created_at")
 
   // Relations
-  worker        User          @relation(fields: [workerId], references: [id])
-  items         SaleItem[]
-  credit        Credit?
-  bankAccount   BankAccount?  @relation(fields: [bankAccountId], references: [id])
+  worker      User         @relation(fields: [workerId], references: [id])
+  branch      Branch?      @relation(fields: [branchId], references: [id])
+  items       SaleItem[]
+  credit      Credit?
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
 
   @@map("sales")
 }
 
 // ─────────────────────────────────────────────
 // SALE ITEMS
-// One row = one product line within a sale
-// Example: Sale #1001
-//   ├── Brake Pad x2   → one SaleItem row
-//   ├── Oil Filter x1  → one SaleItem row
-//   └── Spark Plug x4  → one SaleItem row
-//
-// itemName and unitPrice are snapshots of the
-// inventory at the time of sale — so the record
-// stays accurate even if prices change later
 // ─────────────────────────────────────────────
 
 model SaleItem {
@@ -141,18 +234,14 @@ model SaleItem {
   amount      Decimal   @db.Decimal(10, 2)
 
   // Relations
-  sale        Sale      @relation(fields: [saleId], references: [id])
-  inventory   Inventory @relation(fields: [inventoryId], references: [id])
+  sale      Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  inventory Inventory @relation(fields: [inventoryId], references: [id])
 
   @@map("sale_items")
 }
 
 // ─────────────────────────────────────────────
 // ACTIVITY LOGS
-// Append-only audit trail — written server-side
-// on every significant action
-// workerName is a snapshot so logs are accurate
-// even if the user is later deleted
 // ─────────────────────────────────────────────
 
 model ActivityLog {
@@ -165,21 +254,13 @@ model ActivityLog {
   createdAt  DateTime     @default(now()) @map("created_at")
 
   // Relations
-  worker     User         @relation(fields: [workerId], references: [id])
+  worker User @relation(fields: [workerId], references: [id])
 
   @@map("activity_logs")
 }
 
 // ─────────────────────────────────────────────
-// EXPENSES
-// Monthly operating costs (rent, salaries, etc.)
-// Used by the Reports page for profit calculation
-// ─────────────────────────────────────────────
-
-// ─────────────────────────────────────────────
 // CREDITS
-// Created automatically when a sale uses CREDIT payment.
-// Tracks how much has been paid and outstanding balance.
 // ─────────────────────────────────────────────
 
 model Credit {
@@ -194,15 +275,14 @@ model Credit {
   updatedAt    DateTime        @updatedAt @map("updated_at")
 
   // Relations
-  sale         Sale            @relation(fields: [saleId], references: [id])
-  payments     CreditPayment[]
+  sale     Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  payments CreditPayment[]
 
   @@map("credits")
 }
 
 // ─────────────────────────────────────────────
 // CREDIT PAYMENTS
-// Each row is one partial or full payment against a credit.
 // ─────────────────────────────────────────────
 
 model CreditPayment {
@@ -216,12 +296,16 @@ model CreditPayment {
   createdAt     DateTime      @default(now()) @map("created_at")
 
   // Relations
-  credit        Credit        @relation(fields: [creditId], references: [id])
-  recordedBy    User          @relation(fields: [recordedById], references: [id])
-  bankAccount   BankAccount?  @relation(fields: [bankAccountId], references: [id])
+  credit      Credit       @relation(fields: [creditId], references: [id], onDelete: Cascade)
+  recordedBy  User         @relation(fields: [recordedById], references: [id])
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
 
   @@map("credit_payments")
 }
+
+// ─────────────────────────────────────────────
+// CONTACTS
+// ─────────────────────────────────────────────
 
 model Contact {
   id          String      @id @default(uuid())
@@ -237,6 +321,10 @@ model Contact {
   @@map("contacts")
 }
 
+// ─────────────────────────────────────────────
+// BANK ACCOUNTS
+// ─────────────────────────────────────────────
+
 model BankAccount {
   id                String   @id @default(uuid())
   bankName          String   @map("bank_name")
@@ -248,11 +336,15 @@ model BankAccount {
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   // Relations
-  sales             Sale[]
-  creditPayments    CreditPayment[]
+  sales          Sale[]
+  creditPayments CreditPayment[]
 
   @@map("bank_accounts")
 }
+
+// ─────────────────────────────────────────────
+// EXPENSES
+// ─────────────────────────────────────────────
 
 model Expense {
   id        String   @id @default(uuid())
@@ -260,6 +352,7 @@ model Expense {
   amount    Decimal  @db.Decimal(10, 2)
   month     Int      // 1–12
   year      Int
+  branchId  String?  @map("branch_id")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("expenses")

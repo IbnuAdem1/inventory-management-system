@@ -1,9 +1,4 @@
 // src/components/forms/EditInventoryForm.tsx
-//
-// Dialog form for editing an existing inventory item.
-// Pre-fills all fields with current item data.
-// On submit: calls updateItem() from InventoryContext.
-
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -52,7 +47,7 @@ type FormValues = z.infer<typeof schema>;
 // ─────────────────────────────────────────────
 
 interface EditInventoryFormProps {
-  item: InventoryItem;
+  item: InventoryItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -67,30 +62,32 @@ const EditInventoryForm = ({ item, open, onOpenChange }: EditInventoryFormProps)
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      name: item.name,
-      brand: item.brand,
-      compatibility: item.compatibility,
-      costPrice: item.costPrice,
-      sellingPrice: item.sellingPrice,
-      stock: item.stock,
-      minStock: item.minStock,
+      name: item?.name || "",
+      brand: item?.brand || "",
+      compatibility: item?.compatibility || "",
+      costPrice: item?.costPrice || 0,
+      sellingPrice: item?.sellingPrice || 0,
+      stock: item?.stock || 0,
+      minStock: item?.minStock || 5,
     },
   });
 
-  // Re-populate form if the item changes (e.g. user clicks edit on a different row)
   useEffect(() => {
-    form.reset({
-      name: item.name,
-      brand: item.brand,
-      compatibility: item.compatibility,
-      costPrice: item.costPrice,
-      sellingPrice: item.sellingPrice,
-      stock: item.stock,
-      minStock: item.minStock,
-    });
-  }, [item, form]);
+    if (item && open) {
+      form.reset({
+        name: item.name,
+        brand: item.brand,
+        compatibility: item.compatibility,
+        costPrice: item.costPrice,
+        sellingPrice: item.sellingPrice,
+        stock: item.stock,
+        minStock: item.minStock,
+      });
+    }
+  }, [item, open, form]);
 
   const onSubmit = async (values: FormValues) => {
+    if (!item) return;
     try {
       await updateItem(item.id, values);
       toast.success(`"${values.name}" updated successfully.`);
@@ -100,6 +97,8 @@ const EditInventoryForm = ({ item, open, onOpenChange }: EditInventoryFormProps)
       toast.error(message);
     }
   };
+
+  if (!item) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

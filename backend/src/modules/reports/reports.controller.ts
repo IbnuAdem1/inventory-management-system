@@ -6,7 +6,8 @@ export const reportsController = {
   async getSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const year = parseInt(req.query.year as string) || new Date().getFullYear();
-      const data = await reportsService.getSummary(year);
+      const branchId = req.query.branchId as string | undefined;
+      const data = await reportsService.getSummary(year, branchId);
       res.status(200).json(data);
     } catch (error) {
       next(error);
@@ -16,16 +17,28 @@ export const reportsController = {
   async getTopItems(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const limit = parseInt(req.query.limit as string) || 5;
-      const data = await reportsService.getTopItems(limit);
+      const branchId = req.query.branchId as string | undefined;
+      const data = await reportsService.getTopItems(limit, branchId);
       res.status(200).json(data);
     } catch (error) {
       next(error);
     }
   },
 
-  async getPaymentBreakdown(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getPaymentBreakdown(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await reportsService.getPaymentBreakdown();
+      const branchId = req.query.branchId as string | undefined;
+      const data = await reportsService.getPaymentBreakdown(branchId);
+      res.status(200).json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getBranchComparison(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const year = parseInt(req.query.year as string) || new Date().getFullYear();
+      const data = await reportsService.getBranchComparison(year);
       res.status(200).json(data);
     } catch (error) {
       next(error);

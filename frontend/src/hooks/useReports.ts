@@ -1,5 +1,7 @@
+// src/hooks/useReports.ts
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch, getAuthToken } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import type { MonthlyReport } from "@/types";
 
 interface ApiReportMonth {
@@ -17,6 +19,7 @@ interface ApiReportSummary {
   yearToDate: {
     revenue: number;
     totalSales: number;
+    expenses?: number;
     profit: number;
   };
 }
@@ -34,18 +37,33 @@ interface ApiPaymentBreakdown {
   count: number;
 }
 
+export interface ApiBranchComparison {
+  year: number;
+  branches: Array<{
+    branchId: string;
+    branchName: string;
+    branchCode: string;
+    totalSalesCount: number;
+    totalRevenue: number;
+  }>;
+}
+
 export interface ReportSummary {
   year: number;
   months: MonthlyReport[];
   yearToDate: ApiReportSummary["yearToDate"];
 }
 
-export function useReportSummaryQuery(year = new Date().getFullYear()) {
+export function useReportSummaryQuery(year = new Date().getFullYear(), branchId?: string) {
+  const { isAuthenticated } = useAuth();
   return useQuery({
-    queryKey: ["reports", "summary", year],
-    enabled: Boolean(getAuthToken()),
+    queryKey: ["reports", "summary", year, branchId],
+    enabled: isAuthenticated,
     queryFn: async () => {
-      const summary = await apiFetch<ApiReportSummary>(`/reports/summary?year=${year}`);
+      const params = new URLSearchParams({ year: String(year) });
+      if (branchId && branchId !== "all") params.set("branchId", branchId);
+
+      const summary = await apiFetch<ApiReportSummary>(`/reports/summary?${params.toString()}`);
       return {
         year: summary.year,
         months: summary.months.map((month) => ({
@@ -66,12 +84,16 @@ export function useReportSummaryQuery(year = new Date().getFullYear()) {
   });
 }
 
-export function useTopItemsQuery(limit = 5) {
+export function useTopItemsQuery(limit = 5, branchId?: string) {
+  const { isAuthenticated } = useAuth();
   return useQuery({
-    queryKey: ["reports", "top-items", limit],
-    enabled: Boolean(getAuthToken()),
+    queryKey: ["reports", "top-items", limit, branchId],
+    enabled: isAuthenticated,
     queryFn: async () => {
-      const items = await apiFetch<ApiTopItem[]>(`/reports/top-items?limit=${limit}`);
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (branchId && branchId !== "all") params.set("branchId", branchId);
+
+      const items = await apiFetch<ApiTopItem[]>(`/reports/top-items?${params.toString()}`);
       return items.map((item) => ({
         ...item,
         totalRevenue: Number(item.totalRevenue),
@@ -80,16 +102,32 @@ export function useTopItemsQuery(limit = 5) {
   });
 }
 
-export function usePaymentBreakdownQuery() {
+export function usePaymentBreakdownQuery(branchId?: string) {
+  const { isAuthenticated } = useAuth();
   return useQuery({
-    queryKey: ["reports", "payment-breakdown"],
-    enabled: Boolean(getAuthToken()),
+    queryKey: ["reports", "payment-breakdown", branchId],
+    enabled: isAuthenticated,
     queryFn: async () => {
-      const breakdown = await apiFetch<ApiPaymentBreakdown[]>("/reports/payment-breakdown");
+      const params = new URLSearchParams();
+      if (branchId && branchId !== "all") params.set("branchId", branchId);
+
+      const breakdown = await apiFetch<ApiPaymentBreakdown[]>(
+        `/reports/payment-breakdown?${params.toString()}`
+      );
       return breakdown.map((item) => ({
         ...item,
         total: Number(item.total),
       }));
     },
+  });
+}
+
+export function useBranchComparisonQuery(year = new Date().getFullYear()) {
+  const { isAuthenticated } = useAuth();
+  return useQuery({
+    queryKey: ["reports", "branch-comparison", year],
+    enabled: isAuthenticated,
+    queryFn: () =>
+      apiFetch<ApiBranchComparison>(`/reports/branch-comparison?year=${year}`),
   });
 }

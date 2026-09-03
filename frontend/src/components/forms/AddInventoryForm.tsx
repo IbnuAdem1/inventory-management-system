@@ -1,22 +1,17 @@
 // src/components/forms/AddInventoryForm.tsx
-//
-// Dialog form for adding a new inventory item.
-// Uses react-hook-form + zod for validation.
-// On submit: calls addItem() from InventoryContext.
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus } from "lucide-react";
+import { Plus, Store } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -28,6 +23,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useInventory } from "@/contexts/InventoryContext";
+import { useBranch } from "@/contexts/BranchContext";
 import { toast } from "sonner";
 
 // ─────────────────────────────────────────────
@@ -53,6 +49,7 @@ type FormValues = z.infer<typeof schema>;
 const AddInventoryForm = () => {
   const [open, setOpen] = useState(false);
   const { addItem } = useInventory();
+  const { activeBranch } = useBranch();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -69,7 +66,10 @@ const AddInventoryForm = () => {
 
   const onSubmit = async (values: FormValues) => {
     try {
-      await addItem(values);
+      await addItem({
+        ...values,
+        branchId: activeBranch ? activeBranch.id : undefined,
+      });
       toast.success(`"${values.name}" added to inventory.`);
       form.reset();
       setOpen(false);
@@ -89,7 +89,15 @@ const AddInventoryForm = () => {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add New Part</DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle>Add New Part</DialogTitle>
+              {activeBranch && (
+                <Badge variant="outline" className="gap-1 text-xs">
+                  <Store className="h-3 w-3 text-primary" />
+                  {activeBranch.name}
+                </Badge>
+              )}
+            </div>
           </DialogHeader>
 
           <Form {...form}>
@@ -124,13 +132,13 @@ const AddInventoryForm = () => {
                 />
               </div>
 
-              {/* Compatibility */}
+              {/* Row 2: Compatibility */}
               <FormField
                 control={form.control}
                 name="compatibility"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Compatibility</FormLabel>
+                    <FormLabel>Vehicle Compatibility</FormLabel>
                     <FormControl>
                       <Input placeholder="Toyota Camry 2018-2023" {...field} />
                     </FormControl>
@@ -139,7 +147,7 @@ const AddInventoryForm = () => {
                 )}
               />
 
-              {/* Row 2: Cost + Selling price */}
+              {/* Row 3: Cost Price + Selling Price */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -148,7 +156,13 @@ const AddInventoryForm = () => {
                     <FormItem>
                       <FormLabel>Cost Price ($)</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" min="0" {...field} />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="35.00"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -161,7 +175,13 @@ const AddInventoryForm = () => {
                     <FormItem>
                       <FormLabel>Selling Price ($)</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" min="0" {...field} />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          placeholder="85.00"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -169,7 +189,7 @@ const AddInventoryForm = () => {
                 />
               </div>
 
-              {/* Row 3: Stock + Min stock */}
+              {/* Row 4: Initial Stock + Min Stock */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -178,7 +198,13 @@ const AddInventoryForm = () => {
                     <FormItem>
                       <FormLabel>Initial Stock</FormLabel>
                       <FormControl>
-                        <Input type="number" min="0" {...field} />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="12"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -189,9 +215,15 @@ const AddInventoryForm = () => {
                   name="minStock"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Min Stock (alert threshold)</FormLabel>
+                      <FormLabel>Low Stock Alert Threshold</FormLabel>
                       <FormControl>
-                        <Input type="number" min="1" {...field} />
+                        <Input
+                          type="number"
+                          min="1"
+                          step="1"
+                          placeholder="5"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -199,14 +231,17 @@ const AddInventoryForm = () => {
                 />
               </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => { form.reset(); setOpen(false); }}>
+              {/* Submit */}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setOpen(false)}
+                >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? "Adding..." : "Add Part"}
-                </Button>
-              </DialogFooter>
+                <Button type="submit">Add Part</Button>
+              </div>
             </form>
           </Form>
         </DialogContent>
