@@ -1,12 +1,13 @@
 // src/modules/reports/reports.routes.ts
 import { Router } from "express";
-import { authMiddleware } from "../../middleware/auth.middleware";
+import { authMiddleware, requireOwner } from "../../middleware/auth.middleware";
 
 import { reportsController } from "./reports.controller";
 
 const router = Router();
 
-router.use(authMiddleware);
+router.use(authMiddleware, requireOwner);
+
 
 router.get("/summary", reportsController.getSummary);
 router.get("/top-items", reportsController.getTopItems);
